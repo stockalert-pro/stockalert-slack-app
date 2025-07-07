@@ -76,20 +76,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('Request URL:', req.url);
     console.log('Request method:', req.method);
     
-    // Verify signature with raw body (pass timestamp from body)
+    // Verify signature with raw body
     const isValid = verifyWebhookSignature(
       rawBody,
       signature as string,
-      process.env.STOCKALERT_WEBHOOK_SECRET!,
-      body.timestamp,
-      req.url,
-      req.method
+      process.env.STOCKALERT_WEBHOOK_SECRET!
     );
 
     if (!isValid) {
-      console.error('Signature verification failed - temporarily allowing for testing');
-      // TODO: Re-enable signature verification once we understand the correct format
-      // return res.status(401).json({ error: 'Invalid signature' });
+      console.error('Signature verification failed');
+      return res.status(401).json({ error: 'Invalid signature' });
     }
 
     // Parse and validate event

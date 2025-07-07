@@ -4,6 +4,25 @@ import { postToSlack } from '../../lib/slack-client';
 import { formatAlertMessage } from '../../lib/formatter';
 import { AlertEventSchema } from '../../lib/types';
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+async function getRawBody(req: VercelRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', chunk => {
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      resolve(Buffer.concat(chunks));
+    });
+    req.on('error', reject);
+  });
+}
+
 // Legacy webhook endpoint - use /api/webhooks/[teamId]/stockalert for production
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -19,6 +38,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Get raw body
+    const rawBody = await getRawBody(req);
+    const body = JSON.parse(rawBody.toString());
+    
     // Verify StockAlert signature - check multiple possible headers
     const signature = req.headers['x-stockalert-signature'] 
       || req.headers['x-signature'] 
@@ -38,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const isValid = verifyWebhookSignature(
-      JSON.stringify(req.body),
+      rawBody,
       signature as string,
       process.env.STOCKALERT_WEBHOOK_SECRET!
     );
@@ -48,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Parse and validate event
-    const event = AlertEventSchema.parse(req.body);
+    const event = AlertEventSchema.parse(body);
 
     // Handle alert triggered events
     if (event.event === 'alert.triggered') {
