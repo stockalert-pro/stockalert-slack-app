@@ -53,9 +53,11 @@ export function verifyWebhookSignature(
     receivedSignature: signature,
     secretLength: secret.length,
     secretValue: `${secret.substring(0, 10)}...${secret.substring(secret.length - 10)}`,
+    secretCharCodes: secret.substring(0, 10).split('').map(c => c.charCodeAt(0)),
     payloadLength: payloadString.length,
     payloadStart: payloadString.substring(0, 50),
     payloadEnd: payloadString.substring(payloadString.length - 50),
+    payloadCharCodes: payloadString.substring(0, 10).split('').map(c => c.charCodeAt(0)),
   });
 
   // Try the standard method
