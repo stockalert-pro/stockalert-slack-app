@@ -1,4 +1,5 @@
 import { channelRepo, installationRepo } from '../db/repositories';
+import { getWebhookUrl } from '../constants';
 
 interface SlashCommand {
   token: string;
@@ -77,7 +78,7 @@ export async function handleSlashCommand(command: SlashCommand) {
     case 'status':
       const installation = await installationRepo.findByTeamId(command.team_id);
       const defaultChannel = await channelRepo.findDefaultChannel(command.team_id);
-      const webhookUrl = `https://slack.stockalert.pro/api/webhooks/${command.team_id}/stockalert`;
+      const webhookUrl = getWebhookUrl(command.team_id);
       
       return {
         response_type: 'ephemeral',

@@ -1,8 +1,9 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { oauthStateRepo } from '../../lib/db/repositories';
+import { getOAuthRedirectUrl } from '../../lib/constants';
 
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!;
-const SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI || 'https://stockalert-slack-app.vercel.app/api/slack/oauth';
+const SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI || getOAuthRedirectUrl();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

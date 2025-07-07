@@ -9,9 +9,9 @@ const WEBHOOK_SECRET = process.env.STOCKALERT_WEBHOOK_SECRET || 'test-secret';
 
 // Sample webhook payload
 const payload = {
-  id: 'evt_test_123',
+  event_id: 'evt_test_123',
   type: 'alert.triggered',
-  created_at: new Date().toISOString(),
+  triggered_at: new Date().toISOString(),
   data: {
     alert: {
       id: 'alert_test_456',
@@ -48,7 +48,7 @@ async function sendTestWebhook() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-StockAlert-Signature': signature,
+        'X-Signature': signature,
         'X-StockAlert-Event': 'alert.triggered',
         'X-StockAlert-Timestamp': Date.now().toString(),
       },
