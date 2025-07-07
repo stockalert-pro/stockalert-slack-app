@@ -4,6 +4,7 @@
   "description": "Slack app for receiving StockAlert.pro webhook notifications",
   "main": "dist/index.js",
   "scripts": {
+    "build": "echo 'No build needed - using Vercel Functions'",
     "test:webhook": "tsx scripts/test-webhook.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
