@@ -5,6 +5,25 @@ import { formatAlertMessage } from '../../../lib/formatter';
 import { AlertEventSchema } from '../../../lib/types';
 import { webhookEventRepo, installationRepo } from '../../../lib/db/repositories';
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+async function getRawBody(req: VercelRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', chunk => {
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      resolve(Buffer.concat(chunks));
+    });
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -16,6 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Get raw body
+    const rawBody = await getRawBody(req);
+    const body = JSON.parse(rawBody.toString());
     // Verify installation exists
     const installation = await installationRepo.findByTeamId(teamId);
     if (!installation) {
@@ -40,14 +62,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ error: 'Missing signature' });
     }
 
-    // Debug: Log request body
-    console.log('Request body:', JSON.stringify(req.body));
+    // Debug: Log request body and headers
+    console.log('Raw body length:', rawBody.length);
+    console.log('Body type:', typeof body);
+    console.log('Body:', JSON.stringify(body));
+    console.log('Body keys:', body ? Object.keys(body) : 'null');
     console.log('Signature:', signature);
     console.log('Secret exists:', !!process.env.STOCKALERT_WEBHOOK_SECRET);
     console.log('Secret length:', process.env.STOCKALERT_WEBHOOK_SECRET?.length);
+    console.log('Secret first 4 chars:', process.env.STOCKALERT_WEBHOOK_SECRET?.substring(0, 4));
+    console.log('Secret last 4 chars:', process.env.STOCKALERT_WEBHOOK_SECRET?.substring(process.env.STOCKALERT_WEBHOOK_SECRET.length - 4));
     
+    // Verify signature with raw body
     const isValid = verifyWebhookSignature(
-      JSON.stringify(req.body),
+      rawBody,
       signature as string,
       process.env.STOCKALERT_WEBHOOK_SECRET!
     );
@@ -58,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Parse and validate event
-    const event = AlertEventSchema.parse(req.body);
+    const event = AlertEventSchema.parse(body);
 
     // Generate unique event ID from alert_id and timestamp
     const eventId = `${event.data.alert_id}-${event.timestamp}`;

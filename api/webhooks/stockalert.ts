@@ -51,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const event = AlertEventSchema.parse(req.body);
 
     // Handle alert triggered events
-    if (event.type === 'alert.triggered') {
+    if (event.event === 'alert.triggered') {
       const { text, blocks } = formatAlertMessage(event);
       
       // Post to Slack (fallback for development - uses env vars)
