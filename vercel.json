@@ -1,0 +1,32 @@
+{
+  "framework": null,
+  "outputDirectory": "dist",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "devCommand": "npm run dev",
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/$1"
+    }
+  ],
+  "env": {
+    "SLACK_BOT_TOKEN": "@slack-bot-token",
+    "SLACK_SIGNING_SECRET": "@slack-signing-secret",
+    "SLACK_APP_TOKEN": "@slack-app-token",
+    "SLACK_CLIENT_ID": "@slack-client-id",
+    "SLACK_CLIENT_SECRET": "@slack-client-secret",
+    "STOCKALERT_WEBHOOK_SECRET": "@stockalert-webhook-secret",
+    "POSTGRES_URL": "@postgres-url",
+    "POSTGRES_URL_NON_POOLING": "@postgres-url-non-pooling",
+    "KV_URL": "@kv-url",
+    "KV_REST_API_URL": "@kv-rest-api-url",
+    "KV_REST_API_TOKEN": "@kv-rest-api-token",
+    "KV_REST_API_READ_ONLY_TOKEN": "@kv-rest-api-read-only-token"
+  }
+}

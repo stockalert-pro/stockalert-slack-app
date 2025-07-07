@@ -1,0 +1,38 @@
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { db } from '../lib/db';
+import { sql } from '@vercel/postgres';
+import { kv } from '@vercel/kv';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    version: process.env.VERCEL_GIT_COMMIT_SHA || 'development',
+    checks: {
+      postgres: false,
+      kv: false,
+    },
+  };
+
+  // Check Postgres
+  try {
+    await sql`SELECT 1`;
+    health.checks.postgres = true;
+  } catch (error) {
+    console.error('Postgres health check failed:', error);
+  }
+
+  // Check KV
+  try {
+    await kv.ping();
+    health.checks.kv = true;
+  } catch (error) {
+    console.error('KV health check failed:', error);
+  }
+
+  // Overall status
+  const allHealthy = Object.values(health.checks).every(check => check);
+  health.status = allHealthy ? 'ok' : 'degraded';
+
+  res.status(allHealthy ? 200 : 503).json(health);
+}

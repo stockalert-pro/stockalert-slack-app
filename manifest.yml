@@ -1,0 +1,39 @@
+display_information:
+  name: StockAlert.pro
+  description: Get real-time stock alerts directly in Slack
+  background_color: "#1E40AF"
+  long_description: StockAlert.pro brings professional stock monitoring to your Slack workspace. Get instant notifications when your stocks hit price targets, technical indicators trigger, or important events occur. Support for 21 different alert types including price movements, moving averages, RSI, volume spikes, and dividend announcements.
+
+features:
+  bot_user:
+    display_name: StockAlert
+    always_online: true
+  slash_commands:
+    - command: /stockalert
+      url: https://slack.stockalert.pro/slack/commands
+      description: Manage StockAlert notifications
+      usage_hint: help | test | channel #channel | status
+      should_escape: false
+
+oauth_config:
+  redirect_urls:
+    - https://slack.stockalert.pro/slack/oauth_redirect
+  scopes:
+    bot:
+      - chat:write
+      - chat:write.public
+      - channels:read
+      - groups:read
+      - commands
+
+settings:
+  event_subscriptions:
+    request_url: https://slack.stockalert.pro/slack/events
+    bot_events:
+      - app_mention
+      - message.channels
+  interactivity:
+    is_enabled: true
+    request_url: https://slack.stockalert.pro/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
