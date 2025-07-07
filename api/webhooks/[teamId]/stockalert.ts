@@ -60,22 +60,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Parse and validate event
     const event = AlertEventSchema.parse(req.body);
 
+    // Generate unique event ID from alert_id and timestamp
+    const eventId = `${event.data.alert_id}-${event.timestamp}`;
+    
     // Store webhook event for idempotency and audit trail
     const webhookEvent = await webhookEventRepo.create({
-      eventId: event.event_id,
+      eventId: eventId,
       teamId: teamId,
-      eventType: event.type,
+      eventType: event.event,
       payload: event as any,
     });
 
     // If this is a duplicate event, return success without processing
     if (!webhookEvent) {
-      console.log(`Duplicate event ${event.event_id} for team ${teamId}, skipping`);
+      console.log(`Duplicate event ${eventId} for team ${teamId}, skipping`);
       return res.status(200).json({ success: true, duplicate: true });
     }
 
     // Handle alert triggered events
-    if (event.type === 'alert.triggered') {
+    if (event.event === 'alert.triggered') {
       const { text, blocks } = formatAlertMessage(event);
       
       // Post to Slack with team context
@@ -87,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       // Mark event as processed
-      await webhookEventRepo.markProcessed(event.event_id);
+      await webhookEventRepo.markProcessed(eventId);
     }
 
     res.status(200).json({ success: true });

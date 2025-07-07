@@ -5,15 +5,15 @@ export function formatAlertMessage(event: AlertEvent): {
   text: string;
   blocks: (KnownBlock | Block)[];
 } {
-  const { alert } = event.data;
-  const config = ALERT_TYPE_CONFIG[alert.condition as AlertType] || {
+  const data = event.data;
+  const config = ALERT_TYPE_CONFIG[data.condition as AlertType] || {
     emoji: '📊',
     color: '#0074D9',
-    description: alert.condition,
+    description: data.condition,
   };
 
-  const priceChange = alert.triggered_value && alert.threshold
-    ? ((alert.triggered_value - alert.threshold) / alert.threshold * 100).toFixed(2)
+  const priceChange = data.current_value && data.threshold
+    ? ((data.current_value - data.threshold) / data.threshold * 100).toFixed(2)
     : null;
 
   const changeText = priceChange
@@ -22,14 +22,17 @@ export function formatAlertMessage(event: AlertEvent): {
       : `+${priceChange}%`
     : '';
 
-  const text = `${config.emoji} ${alert.symbol} Alert: ${alert.company_name} - ${config.description}`;
+  const text = `${config.emoji} ${data.symbol} Alert: ${config.description}`;
+  
+  // Handle test alerts that might not have all fields
+  const isTest = data.test === true;
 
   const blocks: (KnownBlock | Block)[] = [
     {
       type: 'header',
       text: {
         type: 'plain_text',
-        text: `${config.emoji} ${alert.symbol} Alert Triggered`,
+        text: `${config.emoji} ${data.symbol} Alert Triggered`,
         emoji: true,
       },
     },
@@ -37,29 +40,29 @@ export function formatAlertMessage(event: AlertEvent): {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${alert.company_name}*\n${config.description}`,
+        text: `*${data.symbol}*\n${config.description}`,
       },
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Target:*\n$${alert.threshold.toFixed(2)}`,
+          text: `*Target:*\n$${data.threshold.toFixed(2)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Current:*\n$${alert.triggered_value?.toFixed(2) || 'N/A'} ${changeText}`,
+          text: `*Current:*\n$${data.current_value.toFixed(2)} ${changeText}`,
         },
       ],
     },
   ];
 
-  if (alert.triggered_at) {
-    const timestamp = new Date(alert.triggered_at).toLocaleString();
+  if (data.triggered_at) {
+    const timestamp = new Date(data.triggered_at).toLocaleString();
     blocks.push({
       type: 'context',
       elements: [
         {
           type: 'mrkdwn',
-          text: `Triggered at ${timestamp}`,
+          text: `Triggered at ${timestamp}${isTest ? ' (Test Alert)' : ''}`,
         },
       ],
     });
@@ -85,7 +88,7 @@ export function formatAlertMessage(event: AlertEvent): {
           text: 'Manage Alert',
           emoji: true,
         },
-        url: `https://stockalert.pro/dashboard/alerts/${alert.id}`,
+        url: `https://stockalert.pro/dashboard/alerts/${data.alert_id}`,
         action_id: 'manage_alert',
       },
     ],

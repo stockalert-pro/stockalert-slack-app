@@ -1,6 +1,24 @@
 import { z } from 'zod';
 
+// StockAlert.pro actual webhook payload schema
 export const AlertEventSchema = z.object({
+  event: z.enum(['alert.triggered', 'alert.created', 'alert.updated', 'alert.deleted']),
+  timestamp: z.string(),
+  data: z.object({
+    alert_id: z.string(),
+    symbol: z.string(),
+    condition: z.string(),
+    threshold: z.number(),
+    current_value: z.number(),
+    triggered_at: z.string(),
+    reason: z.string().optional(),
+    parameters: z.any().nullable(),
+    test: z.boolean().optional(),
+  }),
+});
+
+// Legacy schema for compatibility
+export const LegacyAlertEventSchema = z.object({
   event_id: z.string(),
   type: z.enum(['alert.triggered', 'alert.created', 'alert.updated', 'alert.deleted']),
   triggered_at: z.string(),
