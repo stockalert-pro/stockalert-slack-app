@@ -4,7 +4,6 @@ import { postToSlack } from '../../../lib/slack-client';
 import { formatAlertMessage } from '../../../lib/formatter';
 import { AlertEventSchema } from '../../../lib/types';
 import { webhookEventRepo, installationRepo } from '../../../lib/db/repositories';
-import { webhookRateLimiter } from '../../../lib/rate-limiter';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -14,19 +13,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const teamId = req.query.teamId as string;
   if (!teamId) {
     return res.status(400).json({ error: 'Missing teamId parameter' });
-  }
-
-  // Apply rate limiting
-  const rateLimitResult = await webhookRateLimiter.check(teamId);
-  res.setHeader('X-RateLimit-Limit', rateLimitResult.limit);
-  res.setHeader('X-RateLimit-Remaining', rateLimitResult.remaining);
-  res.setHeader('X-RateLimit-Reset', rateLimitResult.reset);
-
-  if (!rateLimitResult.success) {
-    return res.status(429).json({ 
-      error: 'Too many requests',
-      retryAfter: rateLimitResult.reset - Math.floor(Date.now() / 1000)
-    });
   }
 
   try {

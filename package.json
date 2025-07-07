@@ -34,7 +34,6 @@
   },
   "dependencies": {
     "@slack/web-api": "^7.0.0",
-    "@vercel/kv": "^3.0.0",
     "@vercel/node": "^3.0.0",
     "@vercel/postgres": "^0.10.0",
     "drizzle-orm": "^0.44.2",

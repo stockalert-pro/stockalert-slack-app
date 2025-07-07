@@ -1,7 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { WebClient } from '@slack/web-api';
 import { installationRepo, oauthStateRepo } from '../../lib/db/repositories';
-import { oauthRateLimiter } from '../../lib/rate-limiter';
 import { requireEnv } from '../../lib/env-validator';
 
 const SLACK_CLIENT_ID = requireEnv('SLACK_CLIENT_ID');
@@ -21,14 +20,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!state || typeof state !== 'string') {
     return res.status(400).send('Missing state parameter');
-  }
-
-  // Apply rate limiting based on IP
-  const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
-  const rateLimitResult = await oauthRateLimiter.check(clientIp as string);
-  
-  if (!rateLimitResult.success) {
-    return res.status(429).send('Too many OAuth attempts. Please try again later.');
   }
 
   try {

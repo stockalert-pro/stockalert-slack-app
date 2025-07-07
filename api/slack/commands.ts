@@ -1,7 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifySlackRequest } from '../../lib/slack-verify';
 import { handleSlashCommand } from '../../lib/handlers/commands';
-import { commandRateLimiter } from '../../lib/rate-limiter';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only POST requests
@@ -18,16 +17,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Parse command
     const command = req.body;
-
-    // Apply rate limiting per user
-    const rateLimitResult = await commandRateLimiter.check(`${command.team_id}:${command.user_id}`);
-    
-    if (!rateLimitResult.success) {
-      return res.status(200).json({
-        response_type: 'ephemeral',
-        text: '⚠️ Too many commands. Please wait a moment before trying again.'
-      });
-    }
 
     // Handle command
     const response = await handleSlashCommand(command);
