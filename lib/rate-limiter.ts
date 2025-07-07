@@ -1,7 +1,10 @@
 // Rate limiting is optional - will be disabled if KV is not configured
-let kv: any;
+let kv: any = null;
 try {
-  kv = require('@vercel/kv').kv;
+  // Only try to load KV if environment variables are present
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    kv = require('@vercel/kv').kv;
+  }
 } catch (e) {
   console.log('KV not available, rate limiting disabled');
 }

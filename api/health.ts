@@ -3,9 +3,12 @@ import { db } from '../lib/db';
 import { sql } from '@vercel/postgres';
 
 // KV is optional
-let kv: any;
+let kv: any = null;
 try {
-  kv = require('@vercel/kv').kv;
+  // Only try to load KV if environment variables are present
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    kv = require('@vercel/kv').kv;
+  }
 } catch (e) {
   // KV not available
 }
