@@ -64,6 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Debug: Log request body and headers
     console.log('Raw body length:', rawBody.length);
+    console.log('Raw body as string:', rawBody.toString());
     console.log('Body type:', typeof body);
     console.log('Body:', JSON.stringify(body));
     console.log('Body keys:', body ? Object.keys(body) : 'null');
@@ -72,12 +73,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('Secret length:', process.env.STOCKALERT_WEBHOOK_SECRET?.length);
     console.log('Secret first 4 chars:', process.env.STOCKALERT_WEBHOOK_SECRET?.substring(0, 4));
     console.log('Secret last 4 chars:', process.env.STOCKALERT_WEBHOOK_SECRET?.substring(process.env.STOCKALERT_WEBHOOK_SECRET.length - 4));
+    console.log('Request URL:', req.url);
+    console.log('Request method:', req.method);
     
-    // Verify signature with raw body
+    // Verify signature with raw body (pass timestamp from body)
     const isValid = verifyWebhookSignature(
       rawBody,
       signature as string,
-      process.env.STOCKALERT_WEBHOOK_SECRET!
+      process.env.STOCKALERT_WEBHOOK_SECRET!,
+      body.timestamp
     );
 
     if (!isValid) {
