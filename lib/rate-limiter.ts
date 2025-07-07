@@ -1,4 +1,10 @@
-import { kv } from '@vercel/kv';
+// Rate limiting is optional - will be disabled if KV is not configured
+let kv: any;
+try {
+  kv = require('@vercel/kv').kv;
+} catch (e) {
+  console.log('KV not available, rate limiting disabled');
+}
 
 interface RateLimitResult {
   success: boolean;
@@ -23,6 +29,16 @@ export class RateLimiter {
   }
 
   async check(identifier: string): Promise<RateLimitResult> {
+    // If KV is not available, allow all requests
+    if (!kv) {
+      return {
+        success: true,
+        limit: this.limit,
+        remaining: this.limit,
+        reset: Math.ceil((Date.now() + this.windowMs) / 1000),
+      };
+    }
+
     const key = `${this.prefix}:${identifier}`;
     const now = Date.now();
     const windowStart = now - this.windowMs;
