@@ -2,9 +2,10 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { WebClient } from '@slack/web-api';
 import { installationRepo, oauthStateRepo } from '../../lib/db/repositories';
 import { oauthRateLimiter } from '../../lib/rate-limiter';
+import { requireEnv } from '../../lib/env-validator';
 
-const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!;
-const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET!;
+const SLACK_CLIENT_ID = requireEnv('SLACK_CLIENT_ID');
+const SLACK_CLIENT_SECRET = requireEnv('SLACK_CLIENT_SECRET');
 const SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI || 'https://slack.stockalert.pro/api/slack/oauth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

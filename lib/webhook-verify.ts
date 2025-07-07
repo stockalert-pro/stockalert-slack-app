@@ -10,5 +10,9 @@ export function verifyWebhookSignature(
     .update(payload)
     .digest('hex');
 
-  return signature === `sha256=${expectedSignature}`;
+  // Use timing-safe comparison to prevent timing attacks
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(`sha256=${expectedSignature}`)
+  );
 }
