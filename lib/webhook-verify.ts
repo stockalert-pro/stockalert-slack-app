@@ -4,7 +4,9 @@ export function verifyWebhookSignature(
   payload: string | Buffer,
   signature: string,
   secret: string,
-  timestamp?: string
+  timestamp?: string,
+  url?: string,
+  method?: string
 ): boolean {
   // Remove 'sha256=' prefix if present
   const signatureHash = signature.startsWith('sha256=') 
@@ -71,8 +73,44 @@ export function verifyWebhookSignature(
     // If JSON parsing fails, skip this method
   }
 
+  // Method 7: Try URL + payload (common webhook pattern)
+  let expectedSignature7 = '';
+  if (url) {
+    const urlPayload = `${url}${payloadString}`;
+    expectedSignature7 = crypto
+      .createHmac('sha256', secret)
+      .update(urlPayload)
+      .digest('hex');
+  }
+
+  // Method 8: Try method + URL + payload
+  let expectedSignature8 = '';
+  if (url && method) {
+    const fullPayload = `${method}${url}${payloadString}`;
+    expectedSignature8 = crypto
+      .createHmac('sha256', secret)
+      .update(fullPayload)
+      .digest('hex');
+  }
+
+  // Method 9: Try just the secret without prefix using raw bytes
+  let expectedSignature9 = '';
+  if (secret.startsWith('sk_')) {
+    const secretWithoutPrefix = secret.slice(3);
+    expectedSignature9 = crypto
+      .createHmac('sha256', secretWithoutPrefix)
+      .update(payload)
+      .digest('hex');
+  }
+
+  // Method 10: Try with SHA1 instead of SHA256 (some older APIs)
+  const expectedSignature10 = crypto
+    .createHmac('sha1', secret)
+    .update(payloadString)
+    .digest('hex');
+
   // Debug logging with all methods
-  console.log('Webhook signature verification:', {
+  console.log('Webhook signature verification (methods 1-6):', {
     receivedSignature: signature,
     receivedHash: signatureHash,
     expectedHash1_standard: expectedSignature1,
@@ -81,12 +119,17 @@ export function verifyWebhookSignature(
     expectedHash4_noPrefix: expectedSignature4,
     expectedHash5_timestamp: expectedSignature5,
     expectedHash6_compact: expectedSignature6,
+  });
+  
+  console.log('Webhook signature verification (methods 7-10):', {
+    expectedHash7_urlPayload: expectedSignature7,
+    expectedHash8_methodUrlPayload: expectedSignature8,
+    expectedHash9_noPrefixRaw: expectedSignature9,
+    expectedHash10_sha1: expectedSignature10,
     secretLength: secret.length,
-    secretTrimmedLength: secret.trim().length,
     payloadLength: payloadString.length,
-    payloadSample: payloadString.substring(0, 200),
-    payloadLastChars: payloadString.substring(payloadString.length - 50),
-    timestamp: timestamp || 'none',
+    url: url || 'none',
+    method: method || 'none',
   });
 
   // Use timing-safe comparison to prevent timing attacks
@@ -122,6 +165,33 @@ export function verifyWebhookSignature(
     if (expectedSignature6 && crypto.timingSafeEqual(signatureBuffer, Buffer.from(expectedSignature6, 'hex'))) {
       console.log('Signature verified with method 6 (compact JSON)');
       return true;
+    }
+    
+    if (expectedSignature7 && crypto.timingSafeEqual(signatureBuffer, Buffer.from(expectedSignature7, 'hex'))) {
+      console.log('Signature verified with method 7 (URL + payload)');
+      return true;
+    }
+    
+    if (expectedSignature8 && crypto.timingSafeEqual(signatureBuffer, Buffer.from(expectedSignature8, 'hex'))) {
+      console.log('Signature verified with method 8 (method + URL + payload)');
+      return true;
+    }
+    
+    if (expectedSignature9 && crypto.timingSafeEqual(signatureBuffer, Buffer.from(expectedSignature9, 'hex'))) {
+      console.log('Signature verified with method 9 (no prefix raw)');
+      return true;
+    }
+    
+    // SHA1 has different length, check separately
+    if (expectedSignature10.length === signatureHash.length) {
+      try {
+        if (crypto.timingSafeEqual(Buffer.from(signatureHash, 'hex'), Buffer.from(expectedSignature10, 'hex'))) {
+          console.log('Signature verified with method 10 (SHA1)');
+          return true;
+        }
+      } catch (e) {
+        // Different lengths
+      }
     }
     
     console.log('Signature verification failed with all methods');
