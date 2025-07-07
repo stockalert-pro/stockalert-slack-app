@@ -19,9 +19,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Verify StockAlert signature
-    const signature = req.headers['x-stockalert-signature'] || req.headers['x-signature'] as string;
+    // Verify StockAlert signature - check multiple possible headers
+    const signature = req.headers['x-stockalert-signature'] 
+      || req.headers['x-signature'] 
+      || req.headers['x-webhook-signature'] as string;
+    
+    // Debug logging
+    console.log('Legacy webhook headers:', {
+      'x-stockalert-signature': req.headers['x-stockalert-signature'],
+      'x-signature': req.headers['x-signature'],
+      'x-webhook-signature': req.headers['x-webhook-signature'],
+      'all-headers': Object.keys(req.headers),
+    });
+    
     if (!signature) {
+      console.error('No signature header found in legacy endpoint');
       return res.status(401).json({ error: 'Missing signature' });
     }
 

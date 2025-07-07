@@ -22,12 +22,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Installation not found' });
     }
 
-    // Verify StockAlert signature
-    const signature = req.headers['x-stockalert-signature'] || req.headers['x-signature'] as string;
+    // Verify StockAlert signature - check multiple possible headers
+    const signature = req.headers['x-stockalert-signature'] 
+      || req.headers['x-signature'] 
+      || req.headers['x-webhook-signature'] as string;
+    
+    // Debug logging
+    console.log('Webhook headers:', {
+      'x-stockalert-signature': req.headers['x-stockalert-signature'],
+      'x-signature': req.headers['x-signature'],
+      'x-webhook-signature': req.headers['x-webhook-signature'],
+      'content-type': req.headers['content-type'],
+    });
+    
     if (!signature) {
+      console.error('No signature header found');
       return res.status(401).json({ error: 'Missing signature' });
     }
 
+    // Debug: Log request body
+    console.log('Request body:', JSON.stringify(req.body));
+    console.log('Signature:', signature);
+    console.log('Secret exists:', !!process.env.STOCKALERT_WEBHOOK_SECRET);
+    console.log('Secret length:', process.env.STOCKALERT_WEBHOOK_SECRET?.length);
+    
     const isValid = verifyWebhookSignature(
       JSON.stringify(req.body),
       signature as string,
@@ -35,6 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     if (!isValid) {
+      console.error('Signature verification failed');
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
