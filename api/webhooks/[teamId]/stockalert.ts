@@ -62,19 +62,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ error: 'Missing signature' });
     }
 
-    // Debug: Log request body and headers
-    console.log('Raw body length:', rawBody.length);
-    console.log('Raw body as string:', rawBody.toString());
-    console.log('Body type:', typeof body);
-    console.log('Body:', JSON.stringify(body));
-    console.log('Body keys:', body ? Object.keys(body) : 'null');
-    console.log('Signature:', signature);
-    console.log('Secret exists:', !!process.env.STOCKALERT_WEBHOOK_SECRET);
-    console.log('Secret length:', process.env.STOCKALERT_WEBHOOK_SECRET?.length);
-    console.log('Secret first 4 chars:', process.env.STOCKALERT_WEBHOOK_SECRET?.substring(0, 4));
-    console.log('Secret last 4 chars:', process.env.STOCKALERT_WEBHOOK_SECRET?.substring(process.env.STOCKALERT_WEBHOOK_SECRET.length - 4));
-    console.log('Request URL:', req.url);
-    console.log('Request method:', req.method);
+    // Log webhook receipt
+    console.log(`Webhook received for team ${teamId}:`, {
+      event: body.event,
+      symbol: body.data?.symbol,
+      alertId: body.data?.alert_id,
+      timestamp: body.timestamp
+    });
     
     // Verify signature with raw body
     const isValid = verifyWebhookSignature(
@@ -84,9 +78,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     if (!isValid) {
-      console.error('Signature verification failed - check webhook secret configuration');
-      // Temporarily bypass to test functionality
-      // return res.status(401).json({ error: 'Invalid signature' });
+      console.error('Signature verification failed');
+      return res.status(401).json({ error: 'Invalid signature' });
     }
 
     // Parse and validate event
