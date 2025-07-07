@@ -19,7 +19,21 @@ export async function verifySlackRequest(
   }
 
   // Create signature base string
-  const rawBody = JSON.stringify(req.body);
+  // For URL-encoded form data from Slack, we need the raw body string
+  let rawBody: string;
+  if (typeof req.body === 'string') {
+    rawBody = req.body;
+  } else if (req.body && typeof req.body === 'object') {
+    // If body is already parsed, we need to reconstruct it
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(req.body)) {
+      params.append(key, String(value));
+    }
+    rawBody = params.toString();
+  } else {
+    rawBody = '';
+  }
+  
   const sigBasestring = `v0:${timestamp}:${rawBody}`;
 
   // Calculate expected signature
