@@ -1,9 +1,4 @@
 {
-  "framework": null,
-  "outputDirectory": "dist",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "devCommand": "npm run dev",
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 10
