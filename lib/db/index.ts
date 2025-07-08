@@ -5,3 +5,6 @@ import * as schema from './schema';
 export const db = drizzle(sql, { schema });
 
 export * from './schema';
+
+// Run auto-migrations when this module is loaded
+import('./auto-migrate').catch(console.error);
