@@ -837,18 +837,6 @@ export function formatSlackAlert(event: AlertEvent): {
         type: 'button',
         text: {
           type: 'plain_text',
-          text: 'Manage Alert',
-          emoji: true,
-        },
-        url: alert_id
-          ? `https://stockalert.pro/dashboard/alerts/${alert_id}`
-          : 'https://stockalert.pro/dashboard/alerts',
-        action_id: 'manage_alert',
-      },
-      {
-        type: 'button',
-        text: {
-          type: 'plain_text',
           text: 'View Stock',
           emoji: true,
         },
