@@ -20,6 +20,43 @@ export async function handleSlashCommand(command: SlashCommand) {
 
   switch (subcommand) {
     case 'help':
+      // Import onboarding helpers
+      const { getOnboardingStatus, getOnboardingProgressMessage } = await import('../onboarding');
+      const status = await getOnboardingStatus(command.team_id);
+      
+      if (!status.hasApiKey || !status.hasDefaultChannel || !status.hasWebhook) {
+        // Show onboarding progress if not fully set up
+        const progressMessage = getOnboardingProgressMessage(status);
+        return {
+          response_type: 'ephemeral',
+          blocks: [
+            {
+              type: 'header',
+              text: {
+                type: 'plain_text',
+                text: 'StockAlert.pro Setup',
+              },
+            },
+            ...progressMessage.blocks,
+            {
+              type: 'divider',
+            },
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: '*Available Commands:*\n' +
+                      '• `/stockalert help` - Show this help\n' +
+                      '• `/stockalert status` - Check connection status\n' +
+                      '• `/stockalert channel #channel` - Set alert channel\n' +
+                      '• `/stockalert apikey <key>` - Connect your account',
+              },
+            },
+          ],
+        };
+      }
+      
+      // Show regular help for fully set up users
       return {
         response_type: 'ephemeral',
         blocks: [
@@ -38,7 +75,7 @@ export async function handleSlashCommand(command: SlashCommand) {
                     '• `/stockalert test` - Send a test notification\n' +
                     '• `/stockalert status` - Show integration status\n' +
                     '• `/stockalert channel #channel` - Set notification channel\n' +
-                    '• `/stockalert apikey <key>` - Set your StockAlert.pro API key',
+                    '• `/stockalert apikey <key>` - Update your StockAlert.pro API key',
             },
           },
           {
@@ -46,7 +83,7 @@ export async function handleSlashCommand(command: SlashCommand) {
             elements: [
               {
                 type: 'mrkdwn',
-                text: 'Need help? Visit <https://stockalert.pro/api/docs|our documentation>',
+                text: 'Need help? Visit <https://stockalert.pro/docs|our documentation>',
               },
             ],
           },

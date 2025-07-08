@@ -60,6 +60,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('Installation successful for team:', result.team.id);
 
+    // Start onboarding process
+    try {
+      const { sendWelcomeMessage } = await import('../../lib/onboarding');
+      
+      const botClient = new WebClient(result.access_token);
+      await sendWelcomeMessage(
+        botClient,
+        result.team.id,
+        result.authed_user?.id || ''
+      );
+    } catch (error) {
+      console.error('Failed to send welcome message:', error);
+    }
+
     // Redirect to success page
     res.redirect(302, '/slack-success');
   } catch (error) {

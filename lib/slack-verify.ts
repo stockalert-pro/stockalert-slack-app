@@ -48,3 +48,43 @@ export async function verifySlackRequest(
     Buffer.from(signature, 'utf8')
   );
 }
+
+export function verifySlackSignature(
+  signingSecret: string,
+  signature: string,
+  timestamp: string,
+  body: string
+): boolean {
+  // Validate inputs
+  if (!signingSecret || !signature || !timestamp || !body) {
+    console.error('Missing required parameters for Slack signature verification');
+    return false;
+  }
+
+  // Check timestamp (within 5 minutes)
+  const time = Math.floor(Date.now() / 1000);
+  if (Math.abs(time - parseInt(timestamp)) > 300) {
+    console.error('Slack request timestamp too old');
+    return false;
+  }
+
+  // Create signature base string
+  const sigBasestring = `v0:${timestamp}:${body}`;
+
+  // Calculate expected signature
+  const mySignature = 'v0=' + crypto
+    .createHmac('sha256', signingSecret)
+    .update(sigBasestring, 'utf8')
+    .digest('hex');
+
+  // Compare signatures
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(mySignature, 'utf8'),
+      Buffer.from(signature, 'utf8')
+    );
+  } catch (error) {
+    console.error('Signature comparison failed:', error);
+    return false;
+  }
+}
