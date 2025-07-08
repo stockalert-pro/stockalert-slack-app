@@ -296,7 +296,7 @@ async function handleCommandWithMonitoring(
             name: `Slack - ${command.team_domain}`,
             url: webhookUrl,
             events: ['alert.triggered'],
-            enabled: true,
+            is_active: true,
           });
         }
 

@@ -14,7 +14,7 @@ export interface CreateWebhookRequest {
   name: string;
   url: string;
   events: string[];
-  enabled?: boolean;
+  is_active?: boolean;
 }
 
 export interface WebhookResponse {
@@ -86,7 +86,19 @@ export class StockAlertAPI {
       );
     }
 
-    return response.json() as Promise<WebhookResponse>;
+    const result = await response.json();
+    console.log('Webhook creation response:', result);
+
+    // Handle different response formats - API might return the webhook directly or wrapped
+    if (
+      result &&
+      typeof result === 'object' &&
+      hasProperty(result, 'data') &&
+      typeof result.data === 'object'
+    ) {
+      return result.data as WebhookResponse;
+    }
+    return result as WebhookResponse;
   }
 
   /**

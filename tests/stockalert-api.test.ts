@@ -57,7 +57,7 @@ describe('StockAlertAPI', () => {
       name: 'Test Webhook',
       url: 'https://example.com/webhook',
       events: ['alert.triggered'],
-      enabled: true,
+      is_active: true,
     };
 
     const mockWebhookResponse: WebhookResponse = {
@@ -66,7 +66,7 @@ describe('StockAlertAPI', () => {
       url: 'https://example.com/webhook',
       secret: 'webhook_secret_123',
       events: ['alert.triggered'],
-      enabled: true,
+      is_active: true,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     };
@@ -128,7 +128,7 @@ describe('StockAlertAPI', () => {
         url: 'https://example1.com/webhook',
         secret: 'secret_1',
         events: ['alert.triggered'],
-        enabled: true,
+        is_active: true,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       },
@@ -254,7 +254,7 @@ describe('StockAlertAPI', () => {
         url: 'https://example1.com/webhook',
         secret: 'secret_1',
         events: ['alert.triggered'],
-        enabled: true,
+        is_active: true,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       },

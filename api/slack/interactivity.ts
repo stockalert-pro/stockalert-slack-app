@@ -163,19 +163,25 @@ export default async function handler(
             const api = new StockAlertAPI(apiKey);
             const webhookUrl = getWebhookUrl(payload.team.id);
 
+            console.log('Looking for existing webhook with URL:', webhookUrl);
             let webhook = await api.findWebhookByUrl(webhookUrl);
+
             if (!webhook) {
+              console.log('No existing webhook found, creating new one...');
               webhook = await api.createWebhook({
                 name: `Slack - ${payload.team.domain}`,
                 url: webhookUrl,
                 events: ['alert.triggered'],
-                enabled: true,
+                is_active: true,
               });
+              console.log('Webhook created successfully:', webhook.id);
             } else if (webhook.is_active === false) {
               // Reactivate existing webhook
-              console.log('Reactivating existing webhook:', webhook.id);
+              console.log('Found inactive webhook:', webhook.id);
               // TODO: Add updateWebhook method to API client
               // For now, we'll use the existing webhook even if inactive
+            } else {
+              console.log('Using existing active webhook:', webhook.id);
             }
 
             // Save to database
