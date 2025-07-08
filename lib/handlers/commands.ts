@@ -80,54 +80,77 @@ export async function handleSlashCommand(command: SlashCommand) {
       const defaultChannel = await channelRepo.findDefaultChannel(command.team_id);
       const webhookUrl = getWebhookUrl(command.team_id);
       
+      const statusBlocks = [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '*StockAlert.pro Integration Status*',
+          },
+        },
+        {
+          type: 'section',
+          fields: [
+            {
+              type: 'mrkdwn',
+              text: `*Status:*\n${installation ? '✅ Connected' : '❌ Not installed'}`,
+            },
+            {
+              type: 'mrkdwn',
+              text: '*Workspace:*\n' + command.team_domain,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*Default Channel:*\n${defaultChannel ? `<#${defaultChannel.channelId}>` : 'Not set'}`,
+            },
+            {
+              type: 'mrkdwn',
+              text: '*User:*\n<@' + command.user_id + '>',
+            },
+          ],
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*Webhook URL:*\n\`${webhookUrl}\``,
+          },
+        },
+      ];
+
+      // Add webhook secret section if installation exists
+      if (installation && installation.webhookSecret) {
+        statusBlocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*Webhook Secret:*\n\`${installation.webhookSecret}\``,
+          },
+        });
+        statusBlocks.push({
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: 'Use this webhook URL and secret in your StockAlert.pro account settings',
+            },
+          ],
+        });
+      } else {
+        statusBlocks.push({
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: 'Use this webhook URL in your StockAlert.pro account settings',
+            },
+          ],
+        });
+      }
+      
       return {
         response_type: 'ephemeral',
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: '*StockAlert.pro Integration Status*',
-            },
-          },
-          {
-            type: 'section',
-            fields: [
-              {
-                type: 'mrkdwn',
-                text: `*Status:*\n${installation ? '✅ Connected' : '❌ Not installed'}`,
-              },
-              {
-                type: 'mrkdwn',
-                text: '*Workspace:*\n' + command.team_domain,
-              },
-              {
-                type: 'mrkdwn',
-                text: `*Default Channel:*\n${defaultChannel ? `<#${defaultChannel.channelId}>` : 'Not set'}`,
-              },
-              {
-                type: 'mrkdwn',
-                text: '*User:*\n<@' + command.user_id + '>',
-              },
-            ],
-          },
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*Webhook URL:*\n\`${webhookUrl}\``,
-            },
-          },
-          {
-            type: 'context',
-            elements: [
-              {
-                type: 'mrkdwn',
-                text: 'Use this webhook URL in your StockAlert.pro account settings',
-              },
-            ],
-          },
-        ],
+        blocks: statusBlocks,
       };
 
     case 'channel':

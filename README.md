@@ -55,10 +55,11 @@ Once installed, use these commands in any channel:
 
 ### Setting Up Alerts
 
-1. Log in to [StockAlert.pro](https://stockalert.pro)
-2. Go to Settings → Integrations → Slack
-3. Your webhook URL is automatically configured
-4. Create alerts and they'll appear in Slack!
+1. Run `/stockalert status` in Slack to get your webhook credentials
+2. Log in to [StockAlert.pro](https://stockalert.pro)
+3. Go to Settings → Integrations → Slack
+4. Enter your webhook URL and secret from step 1
+5. Create alerts and they'll appear in Slack!
 
 ### Alert Format
 
@@ -83,7 +84,7 @@ Current: $151.25 +0.83%
 - **Hosting**: Vercel Functions (Serverless)
 - **Database**: Neon PostgreSQL with Drizzle ORM
 - **Authentication**: Slack OAuth 2.0
-- **Security**: HMAC-SHA256 webhook signatures
+- **Security**: HMAC-SHA256 webhook signatures with team-specific secrets
 
 ### API Endpoints
 

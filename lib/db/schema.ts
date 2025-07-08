@@ -13,6 +13,7 @@ export const installations = pgTable('slack_installations', {
   installerUserId: text('installer_user_id'),
   scope: text('scope'),
   tokenType: text('token_type').default('bot'),
+  webhookSecret: text('webhook_secret'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({

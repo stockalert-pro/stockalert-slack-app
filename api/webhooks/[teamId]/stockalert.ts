@@ -86,17 +86,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       timestamp: body.timestamp
     });
     
+    // Get webhook secret for this team
+    const webhookSecret = installation.webhookSecret || process.env.STOCKALERT_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error('No webhook secret configured for team', teamId);
+      return res.status(500).json({ error: 'Webhook secret not configured' });
+    }
+    
     // Verify signature with raw body
     const isValid = verifyWebhookSignature(
       rawBody,
       signature as string,
-      process.env.STOCKALERT_WEBHOOK_SECRET!
+      webhookSecret
     );
 
     if (!isValid) {
       console.error('Signature verification failed', {
-        secretPrefix: process.env.STOCKALERT_WEBHOOK_SECRET?.substring(0, 10),
-        secretLength: process.env.STOCKALERT_WEBHOOK_SECRET?.length
+        teamId,
+        secretPrefix: webhookSecret.substring(0, 10),
+        secretLength: webhookSecret.length
       });
       return res.status(401).json({ error: 'Invalid signature' });
     }

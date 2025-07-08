@@ -1,0 +1,1 @@
+ALTER TABLE "slack_installations" ADD COLUMN "webhook_secret" text;
