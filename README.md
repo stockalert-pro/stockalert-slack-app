@@ -1,221 +1,201 @@
 # StockAlert.pro Slack App
 
-Official Slack app for receiving [StockAlert.pro](https://stockalert.pro) webhook notifications in your Slack workspace.
+Get real-time stock market alerts directly in your Slack workspace. Powered by [StockAlert.pro](https://stockalert.pro).
+
+🚀 **[Add to Slack](https://slack.stockalert.pro)**
 
 ## Features
 
-- 🔔 Real-time alert notifications in Slack channels
-- 🎨 Rich message formatting with stock information
-- 🔒 Secure webhook signature verification
-- 📊 Support for all StockAlert.pro alert types
-- ⚡ High-performance webhook processing
+- 📊 **21 Alert Types** - Price targets, moving averages, RSI, volume, dividends, earnings, and more
+- ⚡ **Real-time Notifications** - Get alerts instantly when your conditions trigger
+- 🎨 **Rich Formatting** - Beautiful Slack messages with price changes and action buttons
+- 🔒 **Secure** - HMAC-SHA256 webhook verification and OAuth 2.0
+- 👥 **Multi-Workspace** - Install on unlimited Slack workspaces
 
 ## Installation
 
-### Option 1: Deploy to Your Server
+### Quick Install (Recommended)
 
-1. Clone the repository:
-```bash
-git clone https://github.com/stockalert-pro/slack-app.git
-cd slack-app
-```
+1. Visit [slack.stockalert.pro](https://slack.stockalert.pro)
+2. Click "Add to Slack"
+3. Choose a channel for alerts
+4. Start receiving alerts!
 
-2. Install dependencies:
-```bash
-npm install
-```
+### Manual Setup
 
-3. Create a `.env` file:
-```env
-# Slack App Credentials
-SLACK_BOT_TOKEN=xoxb-your-bot-token
-SLACK_SIGNING_SECRET=your-signing-secret
-SLACK_APP_TOKEN=xapp-your-app-token
+If you prefer to self-host:
 
-# StockAlert.pro Configuration
-STOCKALERT_WEBHOOK_SECRET=your-webhook-secret
-
-# Server Configuration
-PORT=3000
-NODE_ENV=production
-```
-
-4. Build and start:
-```bash
-npm run build
-npm start
-```
-
-### Option 2: Use Our Hosted Version
-
-Coming soon! We're working on a hosted version that you can install directly from the Slack App Directory.
-
-## Slack App Setup
-
-1. Create a new Slack app at [api.slack.com/apps](https://api.slack.com/apps)
-
-2. Configure OAuth & Permissions:
-   - Add Bot Token Scopes:
-     - `chat:write`
-     - `chat:write.public`
-     - `channels:read`
-     - `groups:read`
-
-3. Enable Socket Mode:
-   - Go to "Socket Mode" in the sidebar
-   - Enable Socket Mode
-   - Generate an App-Level Token with `connections:write` scope
-
-4. Install the app to your workspace
-
-5. Copy your credentials to the `.env` file
-
-## StockAlert.pro Configuration
-
-1. Get your webhook secret from [StockAlert.pro Dashboard](https://stockalert.pro/dashboard/settings)
-
-2. Configure webhook endpoint:
-   ```
-   https://your-domain.com/webhooks/stockalert
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/stockalert-pro/stockalert-slack-app.git
+   cd stockalert-slack-app
    ```
 
-3. Select the events you want to receive:
-   - `alert.triggered`
-   - `alert.created`
-   - `alert.updated`
-   - `alert.deleted`
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your credentials
+   ```
+
+3. **Deploy to Vercel**
+   ```bash
+   npm install -g vercel
+   vercel
+   ```
 
 ## Usage
 
-### Basic Setup
-
-Once installed, the app will automatically post alerts to the channel where it's invited:
-
-```
-/invite @StockAlert
-```
-
 ### Slash Commands
 
-- `/stockalert help` - Show available commands
-- `/stockalert channel #channel-name` - Set default notification channel
-- `/stockalert test` - Send a test notification
+Once installed, use these commands in any channel:
 
-### Message Format
+- `/stockalert` - Show current webhook URL and status
+- `/stockalert help` - Display available commands
+- `/stockalert channel #alerts` - Set default alert channel
 
-Alerts are posted with rich formatting:
+### Setting Up Alerts
+
+1. Log in to [StockAlert.pro](https://stockalert.pro)
+2. Go to Settings → Integrations → Slack
+3. Your webhook URL is automatically configured
+4. Create alerts and they'll appear in Slack!
+
+### Alert Format
+
+Alerts appear as rich Slack messages:
 
 ```
-🚨 AAPL Alert Triggered
+📈 AAPL Alert: Price went above target
 
-Apple Inc. has reached your price target!
+**Apple Inc.**
+Price went above target
 
-Target: $200.00
-Current: $201.50 (+0.75%)
+Target: $150.00
+Current: $151.25 +0.83%
 
-View Dashboard → | Manage Alert →
+[View Dashboard] [Manage Alert]
+```
+
+## Technical Details
+
+### Architecture
+
+- **Hosting**: Vercel Functions (Serverless)
+- **Database**: Neon PostgreSQL with Drizzle ORM
+- **Authentication**: Slack OAuth 2.0
+- **Security**: HMAC-SHA256 webhook signatures
+
+### API Endpoints
+
+- `GET /` - Landing page
+- `GET /api/slack/install` - OAuth installation flow
+- `GET /api/slack/oauth` - OAuth callback
+- `POST /api/slack/commands` - Slash command handler
+- `POST /api/webhooks/:teamId/stockalert` - Webhook receiver
+
+### Database Schema
+
+```sql
+-- Slack installations
+CREATE TABLE slack_installations (
+  id SERIAL PRIMARY KEY,
+  team_id TEXT UNIQUE NOT NULL,
+  team_name TEXT NOT NULL,
+  bot_token TEXT NOT NULL,
+  bot_user_id TEXT NOT NULL,
+  default_channel TEXT,
+  webhook_url TEXT,
+  installed_at TIMESTAMP DEFAULT NOW()
+);
+
+-- OAuth states for security
+CREATE TABLE oauth_states (
+  state TEXT PRIMARY KEY,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Webhook events for idempotency
+CREATE TABLE webhook_events (
+  event_id TEXT PRIMARY KEY,
+  team_id TEXT NOT NULL,
+  processed_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
 ## Development
 
-### Running Locally
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL (or Neon account)
+- Slack App credentials
+- StockAlert.pro webhook secret
+
+### Local Development
 
 ```bash
 # Install dependencies
 npm install
 
-# Run in development mode
+# Run database migrations
+npm run db:migrate
+
+# Start development server
 npm run dev
 
 # Run tests
 npm test
-
-# Run linting
-npm run lint
-```
-
-### Testing Webhooks
-
-Use our test script to simulate webhook events:
-
-```bash
-npm run test:webhook
-```
-
-Or use curl:
-
-```bash
-curl -X POST http://localhost:3000/webhooks/stockalert \
-  -H "Content-Type: application/json" \
-  -H "X-StockAlert-Signature: sha256=..." \
-  -H "X-StockAlert-Event: alert.triggered" \
-  -d '{
-    "id": "evt_123",
-    "type": "alert.triggered",
-    "data": {
-      "alert": {
-        "id": "alert_456",
-        "symbol": "AAPL",
-        "company_name": "Apple Inc.",
-        "condition": "price_above",
-        "threshold": 200,
-        "triggered_value": 201.50
-      }
-    }
-  }'
-```
-
-## Deployment
-
-### Docker
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-CMD ["npm", "start"]
-```
-
-### PM2
-
-```bash
-pm2 start dist/index.js --name stockalert-slack
-pm2 save
-pm2 startup
 ```
 
 ### Environment Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `SLACK_BOT_TOKEN` | Bot User OAuth Token | Yes |
-| `SLACK_SIGNING_SECRET` | Slack app signing secret | Yes |
-| `SLACK_APP_TOKEN` | App-level token for Socket Mode | Yes |
-| `STOCKALERT_WEBHOOK_SECRET` | Webhook secret from StockAlert.pro | Yes |
-| `PORT` | Server port (default: 3000) | No |
-| `NODE_ENV` | Environment (development/production) | No |
-| `DEFAULT_CHANNEL` | Default Slack channel for notifications | No |
+| `SLACK_CLIENT_ID` | Slack OAuth client ID | Yes |
+| `SLACK_CLIENT_SECRET` | Slack OAuth client secret | Yes |
+| `SLACK_SIGNING_SECRET` | Slack request verification | Yes |
+| `STOCKALERT_WEBHOOK_SECRET` | Webhook signature verification | Yes |
+| `POSTGRES_URL` | Database connection string | Yes |
+| `BASE_URL` | Your app's base URL | Yes |
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Fork this repository
+2. Import to Vercel
+3. Add environment variables
+4. Deploy!
+
+### Docker
+
+```bash
+docker build -t stockalert-slack .
+docker run -p 3000:3000 --env-file .env stockalert-slack
+```
 
 ## Security
 
-- All webhooks are verified using HMAC-SHA256 signatures
-- Slack requests are verified using signing secrets
-- No sensitive data is logged
-- All external URLs use HTTPS
+- ✅ All webhooks verified with HMAC-SHA256
+- ✅ Slack requests verified with signing secret
+- ✅ OAuth state parameter prevents CSRF
+- ✅ Database credentials encrypted
+- ✅ No sensitive data in logs
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md).
 
 ## Support
 
 - 📧 Email: support@stockalert.pro
-- 💬 GitHub Discussions: [github.com/stockalert-pro/slack-app/discussions](https://github.com/stockalert-pro/slack-app/discussions)
-- 🐛 Issues: [github.com/stockalert-pro/slack-app/issues](https://github.com/stockalert-pro/slack-app/issues)
+- 🐛 Issues: [GitHub Issues](https://github.com/stockalert-pro/stockalert-slack-app/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/stockalert-pro/stockalert-slack-app/discussions)
 
 ## License
 
 MIT - see [LICENSE](LICENSE) for details.
+
+---
+
+Made with ❤️ by [StockAlert.pro](https://stockalert.pro)
