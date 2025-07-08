@@ -16,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Redirect to Slack OAuth
     const params = new URLSearchParams({
       client_id: SLACK_CLIENT_ID,
-      scope: 'chat:write,chat:write.public,commands,channels:read,groups:read',
+      scope: 'chat:write,chat:write.public,commands,channels:read,im:write',
       redirect_uri: SLACK_REDIRECT_URI,
       state: state,
     });
