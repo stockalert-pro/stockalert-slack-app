@@ -205,7 +205,7 @@ function formatPercentageChangeAlert(event: AlertEvent, isUp: boolean): KnownBlo
         },
         {
           type: 'mrkdwn',
-          text: `*Change:*\n${isUp ? ':green_circle:' : ':red_circle:'} ${formatPercentage(Math.abs(current_value))}`,
+          text: `*Change:*\n${isUp ? '🟢' : '🔴'} ${formatPercentage(Math.abs(current_value))}`,
         },
         {
           type: 'mrkdwn',
@@ -233,7 +233,7 @@ function format52WeekAlert(event: AlertEvent, isHigh: boolean): KnownBlock[] {
         },
         {
           type: 'mrkdwn',
-          text: `*New ${isHigh ? 'High' : 'Low'}:*\n${isHigh ? ':green_circle:' : ':red_circle:'} *${formatCurrency(current_value)}*`,
+          text: `*New ${isHigh ? 'High' : 'Low'}:*\n${isHigh ? '🟢' : '🔴'} *${formatCurrency(current_value)}*`,
         },
       ],
     },
@@ -264,7 +264,7 @@ function format52WeekAlert(event: AlertEvent, isHigh: boolean): KnownBlock[] {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: ':star: *Achievement unlocked! New 52-week high reached!*',
+        text: '⭐ *Achievement unlocked! New 52-week high reached!*',
       },
     });
   }
@@ -309,8 +309,8 @@ function formatMACrossoverAlert(event: AlertEvent, isGolden: boolean): KnownBloc
       text: {
         type: 'mrkdwn',
         text: isGolden
-          ? ':green_circle: *Signal:* Bullish - Short MA crossed above Long MA'
-          : ':red_circle: *Signal:* Bearish - Short MA crossed below Long MA',
+          ? '🟢 *Signal:* Bullish - Short MA crossed above Long MA'
+          : '🔴 *Signal:* Bearish - Short MA crossed below Long MA',
       },
     },
   ];
@@ -362,7 +362,7 @@ function formatRSIAlert(event: AlertEvent): KnownBlock[] {
         },
         {
           type: 'mrkdwn',
-          text: `*Condition:*\n${isOverbought ? ':red_circle: Overbought (>70)' : isOversold ? ':green_circle: Oversold (<30)' : 'Normal'}`,
+          text: `*Condition:*\n${isOverbought ? '🔴 Overbought (>70)' : isOversold ? '🟢 Oversold (<30)' : 'Normal'}`,
         },
       ],
     },
@@ -456,7 +456,7 @@ function formatVolumeChangeAlert(event: AlertEvent): KnownBlock[] {
         },
         {
           type: 'mrkdwn',
-          text: `*Volume Change:*\n:chart_with_upwards_trend: ${formatPercentage(Math.abs(current_value))}`,
+          text: `*Volume Change:*\n📈 ${formatPercentage(Math.abs(current_value))}`,
         },
         {
           type: 'mrkdwn',
@@ -517,7 +517,7 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
       elements: [
         {
           type: 'mrkdwn',
-          text: ':warning: Expect increased volatility around earnings announcements',
+          text: '⚠️ Expect increased volatility around earnings announcements',
         },
       ],
     },
@@ -565,7 +565,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
         },
         {
           type: 'mrkdwn',
-          text: `*Total Payment:*\n:green_circle: *${formatCurrency(totalPayment)}*`,
+          text: `*Total Payment:*\n🟢 *${formatCurrency(totalPayment)}*`,
         }
       );
     }
@@ -580,7 +580,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
         elements: [
           {
             type: 'mrkdwn',
-            text: ':information_source: Payment will be credited to your account in 1-3 business days',
+            text: 'ℹ️ Payment will be credited to your account in 1-3 business days',
           },
         ],
       },
@@ -621,7 +621,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: ':warning: *Must own shares before ex-dividend date to receive payment*',
+          text: '⚠️ *Must own shares before ex-dividend date to receive payment*',
         },
       },
     ];
@@ -656,7 +656,7 @@ function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] 
       },
       {
         type: 'mrkdwn' as const,
-        text: `*Change:*\n${changePercent > 0 ? ':green_circle:' : ':red_circle:'} ${formatPercentage(changePercent)}`,
+        text: `*Change:*\n${changePercent > 0 ? '🟢' : '🔴'} ${formatPercentage(changePercent)}`,
       },
     ];
 
@@ -879,8 +879,8 @@ function formatMATouchAlert(event: AlertEvent): KnownBlock[] {
         {
           type: 'mrkdwn',
           text: isAbove
-            ? '*Breakout:*\n:green_circle: Price broke above moving average'
-            : '*Breakdown:*\n:red_circle: Price broke below moving average',
+            ? '*Breakout:*\n🟢 Price broke above moving average'
+            : '*Breakdown:*\n🔴 Price broke below moving average',
         },
       ],
     },
