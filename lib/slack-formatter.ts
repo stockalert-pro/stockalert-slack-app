@@ -161,7 +161,7 @@ function formatPriceAlert(event: AlertEvent): KnownBlock[] {
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Stock:*\n${company_name || symbol} (${symbol})`,
+          text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
         },
         {
           type: 'mrkdwn',
@@ -185,7 +185,13 @@ function formatPriceAlert(event: AlertEvent): KnownBlock[] {
  */
 function formatPercentageChangeAlert(event: AlertEvent, isUp: boolean): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, price, parameters } = event.data;
-  const initialPrice = (parameters?.initial_price as number) || (price ?? 0);
+  const initialPrice =
+    (parameters?.initial_price as number) || (parameters?.reference_price as number) || 0;
+  const currentPrice = price ?? current_value;
+
+  // Calculate actual percentage change
+  const actualChangePercent =
+    initialPrice > 0 ? ((currentPrice - initialPrice) / initialPrice) * 100 : 0;
 
   return [
     {
@@ -193,11 +199,11 @@ function formatPercentageChangeAlert(event: AlertEvent, isUp: boolean): KnownBlo
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Stock:*\n${company_name || symbol} (${symbol})`,
+          text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
+          text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
         },
         {
           type: 'mrkdwn',
@@ -205,11 +211,11 @@ function formatPercentageChangeAlert(event: AlertEvent, isUp: boolean): KnownBlo
         },
         {
           type: 'mrkdwn',
-          text: `*Change:*\n${isUp ? '🟢' : '🔴'} ${formatPercentage(Math.abs(current_value))}`,
+          text: `*Change:*\n${isUp ? '🟢' : '🔴'} ${formatPercentage(Math.abs(actualChangePercent))}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Target Change:*\n${formatPercentage(isUp ? threshold : -threshold)}`,
+          text: `*Target Change:*\n${formatPercentage(Math.abs(threshold))}`,
         },
       ],
     },
@@ -220,7 +226,8 @@ function formatPercentageChangeAlert(event: AlertEvent, isUp: boolean): KnownBlo
  * Format 52-week high/low alerts
  */
 function format52WeekAlert(event: AlertEvent, isHigh: boolean): KnownBlock[] {
-  const { symbol, company_name, current_value, parameters } = event.data;
+  const { symbol, company_name, current_value, price, parameters } = event.data;
+  const currentPrice = price ?? current_value;
   const previousValue = parameters?.[isHigh ? 'previous_high' : 'previous_low'] as number;
 
   const blocks: KnownBlock[] = [
@@ -229,11 +236,11 @@ function format52WeekAlert(event: AlertEvent, isHigh: boolean): KnownBlock[] {
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Stock:*\n${company_name || symbol} (${symbol})`,
+          text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
         },
         {
           type: 'mrkdwn',
-          text: `*New ${isHigh ? 'High' : 'Low'}:*\n${isHigh ? '🟢' : '🔴'} *${formatCurrency(current_value)}*`,
+          text: `*New ${isHigh ? 'High' : 'Low'}:*\n${isHigh ? '🟢' : '🔴'} *${formatCurrency(currentPrice)}*`,
         },
       ],
     },
@@ -276,7 +283,8 @@ function format52WeekAlert(event: AlertEvent, isHigh: boolean): KnownBlock[] {
  * Format moving average crossover alerts
  */
 function formatMACrossoverAlert(event: AlertEvent, isGolden: boolean): KnownBlock[] {
-  const { symbol, company_name, current_value, parameters } = event.data;
+  const { symbol, company_name, current_value, price, parameters } = event.data;
+  const currentPrice = price ?? current_value;
   const shortPeriod = parameters?.shortPeriod || 50;
   const longPeriod = parameters?.longPeriod || 200;
   const maShort = parameters?.ma_short as number;
@@ -288,19 +296,19 @@ function formatMACrossoverAlert(event: AlertEvent, isGolden: boolean): KnownBloc
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Stock:*\n${company_name || symbol} (${symbol})`,
+          text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Current Price:*\n${formatCurrency(current_value)}`,
+          text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*${shortPeriod}-day MA:*\n${formatCurrency(maShort || current_value)}`,
+          text: `*${shortPeriod}-day MA:*\n${formatCurrency(maShort || currentPrice)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*${longPeriod}-day MA:*\n${formatCurrency(maLong || current_value)}`,
+          text: `*${longPeriod}-day MA:*\n${formatCurrency(maLong || currentPrice)}`,
         },
       ],
     },
@@ -336,35 +344,41 @@ function formatMACrossoverAlert(event: AlertEvent, isGolden: boolean): KnownBloc
  */
 function formatRSIAlert(event: AlertEvent): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, parameters, price } = event.data;
+  const currentPrice = price ?? (parameters?.price as number) ?? 0;
   const rsiValue = (parameters?.rsi_value as number) || current_value;
   const isOverbought = rsiValue > 70;
   const isOversold = rsiValue < 30;
 
+  const fields = [
+    {
+      type: 'mrkdwn' as const,
+      text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
+    },
+    {
+      type: 'mrkdwn' as const,
+      text: `*RSI Value:*\n${rsiValue.toFixed(2)}`,
+    },
+    {
+      type: 'mrkdwn' as const,
+      text: `*Threshold:*\n${threshold}`,
+    },
+    {
+      type: 'mrkdwn' as const,
+      text: `*Condition:*\n${isOverbought ? '🔴 Overbought (>70)' : isOversold ? '🟢 Oversold (<30)' : 'Normal'}`,
+    },
+  ];
+
+  if (currentPrice > 0) {
+    fields.push({
+      type: 'mrkdwn',
+      text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
+    });
+  }
+
   return [
     {
       type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text: `*Stock:*\n${company_name || symbol} (${symbol})`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*RSI Value:*\n${rsiValue.toFixed(2)}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Threshold:*\n${threshold}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Condition:*\n${isOverbought ? '🔴 Overbought (>70)' : isOversold ? '🟢 Oversold (<30)' : 'Normal'}`,
-        },
-      ],
+      fields,
     },
   ];
 }
@@ -384,17 +398,14 @@ function formatPERatioAlert(event: AlertEvent, isForward: boolean): KnownBlock[]
     parameters,
   } = event.data;
   const actualRatio = isForward ? (forward_pe ?? current_value) : (pe_ratio ?? current_value);
+  const currentPrice = price ?? (parameters?.price as number) ?? 0;
   const eps = parameters?.eps as number;
   const forwardEps = parameters?.forward_eps as number;
 
   const fields = [
     {
       type: 'mrkdwn' as const,
-      text: `*Stock:*\n${company_name || symbol} (${symbol})`,
-    },
-    {
-      type: 'mrkdwn' as const,
-      text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
+      text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
     },
     {
       type: 'mrkdwn' as const,
@@ -405,6 +416,13 @@ function formatPERatioAlert(event: AlertEvent, isForward: boolean): KnownBlock[]
       text: `*Target ${isForward ? 'Forward P/E' : 'P/E'}:*\n${threshold.toFixed(2)}x`,
     },
   ];
+
+  if (currentPrice > 0) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
+    });
+  }
 
   if (isForward && forwardEps) {
     fields.push({
@@ -431,38 +449,56 @@ function formatPERatioAlert(event: AlertEvent, isForward: boolean): KnownBlock[]
  */
 function formatVolumeChangeAlert(event: AlertEvent): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, price, parameters } = event.data;
-  const currentVolume = (parameters?.current_volume as number) || 0;
-  const averageVolume = (parameters?.average_volume as number) || 0;
+  const currentPrice = price ?? (parameters?.price as number) ?? 0;
+  const currentVolume =
+    (parameters?.current_volume as number) || (parameters?.volume as number) || 0;
+  const averageVolume =
+    (parameters?.average_volume as number) || (parameters?.avg_volume as number) || 0;
+  const volumeChangePercent = (parameters?.volume_change_percent as number) ?? current_value;
+
+  const fields = [
+    {
+      type: 'mrkdwn' as const,
+      text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
+    },
+  ];
+
+  if (currentVolume > 0) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Current Volume:*\n${formatVolume(currentVolume)}`,
+    });
+  }
+
+  if (averageVolume > 0) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Average Volume:*\n${formatVolume(averageVolume)}`,
+    });
+  }
+
+  fields.push(
+    {
+      type: 'mrkdwn' as const,
+      text: `*Volume Change:*\n📈 ${formatPercentage(Math.abs(volumeChangePercent))}`,
+    },
+    {
+      type: 'mrkdwn' as const,
+      text: `*Threshold:*\n${formatPercentage(threshold)}`,
+    }
+  );
+
+  if (currentPrice > 0) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
+    });
+  }
 
   return [
     {
       type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text: `*Stock:*\n${company_name || symbol} (${symbol})`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Current Volume:*\n${formatVolume(currentVolume)}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Average Volume:*\n${formatVolume(averageVolume)}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Volume Change:*\n📈 ${formatPercentage(Math.abs(current_value))}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Threshold:*\n${formatPercentage(threshold)}`,
-        },
-      ],
+      fields,
     },
   ];
 }
@@ -472,6 +508,7 @@ function formatVolumeChangeAlert(event: AlertEvent): KnownBlock[] {
  */
 function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, price, parameters } = event.data;
+  const currentPrice = price ?? (parameters?.price as number) ?? current_value;
   const earningsDate = parameters?.earnings_date as string;
   const reportingTime = (parameters?.reporting_time as string) || 'After Market Close';
   const estimatedEps = parameters?.estimated_eps as number;
@@ -479,12 +516,18 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
   const fields = [
     {
       type: 'mrkdwn' as const,
-      text: `*Stock:*\n${company_name || symbol} (${symbol})`,
+      text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
     },
-    {
+  ];
+
+  if (currentPrice > 0) {
+    fields.push({
       type: 'mrkdwn' as const,
-      text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
-    },
+      text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
+    });
+  }
+
+  fields.push(
     {
       type: 'mrkdwn' as const,
       text: `*Earnings Date:*\n*${formatDate(earningsDate || event.timestamp)}*`,
@@ -492,8 +535,8 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
     {
       type: 'mrkdwn' as const,
       text: `*Reporting Time:*\n${reportingTime}`,
-    },
-  ];
+    }
+  );
 
   if (estimatedEps) {
     fields.push({
@@ -529,35 +572,44 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
  */
 function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, price, parameters } = event.data;
-  const dividendAmount = (parameters?.dividend_amount as number) || 0;
+  const currentPrice = price ?? (parameters?.price as number) ?? current_value;
+  const dividendAmount =
+    (parameters?.dividend_amount as number) || (parameters?.dividend as number) || 0;
   const dividendYield = parameters?.dividend_yield as number;
   const exDividendDate = parameters?.ex_dividend_date as string;
   const paymentDate = parameters?.payment_date as string;
 
   if (isPayment) {
     const shares = parameters?.shares as number;
-    const totalPayment = shares ? shares * dividendAmount : 0;
+    const totalPayment = shares && dividendAmount > 0 ? shares * dividendAmount : 0;
 
     const fields = [
       {
         type: 'mrkdwn' as const,
-        text: `*Stock:*\n${company_name || symbol} (${symbol})`,
-      },
-      {
-        type: 'mrkdwn' as const,
-        text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
-      },
-      {
-        type: 'mrkdwn' as const,
-        text: `*Payment Date:*\n${formatDate(paymentDate || event.timestamp)}`,
-      },
-      {
-        type: 'mrkdwn' as const,
-        text: `*Dividend/Share:*\n${formatCurrency(dividendAmount)}`,
+        text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
       },
     ];
 
-    if (shares) {
+    if (currentPrice > 0) {
+      fields.push({
+        type: 'mrkdwn' as const,
+        text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
+      });
+    }
+
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Payment Date:*\n${formatDate(paymentDate || event.timestamp)}`,
+    });
+
+    if (dividendAmount > 0) {
+      fields.push({
+        type: 'mrkdwn' as const,
+        text: `*Dividend/Share:*\n${formatCurrency(dividendAmount)}`,
+      });
+    }
+
+    if (shares && totalPayment > 0) {
       fields.push(
         {
           type: 'mrkdwn',
@@ -587,35 +639,48 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
     ];
   } else {
     // Ex-dividend alert
+    const fields = [
+      {
+        type: 'mrkdwn' as const,
+        text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
+      },
+    ];
+
+    if (currentPrice > 0) {
+      fields.push({
+        type: 'mrkdwn' as const,
+        text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
+      });
+    }
+
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Ex-Dividend Date:*\n*${formatDate(exDividendDate || event.timestamp)}*`,
+    });
+
+    if (dividendAmount > 0) {
+      fields.push({
+        type: 'mrkdwn' as const,
+        text: `*Dividend Amount:*\n${formatCurrency(dividendAmount)} per share`,
+      });
+    }
+
+    if (dividendYield && dividendYield > 0) {
+      fields.push({
+        type: 'mrkdwn' as const,
+        text: `*Dividend Yield:*\n${dividendYield.toFixed(2)}%`,
+      });
+    }
+
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Days Until:*\n${threshold} days`,
+    });
+
     return [
       {
         type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text: `*Stock:*\n${company_name || symbol} (${symbol})`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Ex-Dividend Date:*\n*${formatDate(exDividendDate || event.timestamp)}*`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Dividend Amount:*\n${formatCurrency(dividendAmount)} per share`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Dividend Yield:*\n${dividendYield?.toFixed(2) || 'N/A'}%`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Days Until:*\n${threshold} days`,
-          },
-        ],
+        fields,
       },
       {
         type: 'section',
@@ -633,22 +698,24 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
  */
 function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, price, parameters } = event.data;
+  const currentPrice = price ?? current_value;
 
   if (isDaily) {
-    const previousClose = (parameters?.previous_close as number) || current_value;
+    const previousClose = (parameters?.previous_close as number) || currentPrice;
     const week52High = parameters?.week_52_high as number;
     const week52Low = parameters?.week_52_low as number;
     const volume = parameters?.volume as number;
-    const changePercent = (((price ?? current_value) - previousClose) / previousClose) * 100;
+    const changePercent =
+      previousClose > 0 ? ((currentPrice - previousClose) / previousClose) * 100 : 0;
 
     const fields = [
       {
         type: 'mrkdwn' as const,
-        text: `*Stock:*\n${company_name || symbol} (${symbol})`,
+        text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
       },
       {
         type: 'mrkdwn' as const,
-        text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
+        text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
       },
       {
         type: 'mrkdwn' as const,
@@ -656,7 +723,7 @@ function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] 
       },
       {
         type: 'mrkdwn' as const,
-        text: `*Change:*\n${changePercent > 0 ? '🟢' : '🔴'} ${formatPercentage(changePercent)}`,
+        text: `*Change:*\n${changePercent > 0 ? '🟢' : changePercent < 0 ? '🔴' : ''} ${formatPercentage(changePercent)}`,
       },
     ];
 
@@ -690,27 +757,32 @@ function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] 
     // Regular reminder
     const priceChangePercent = parameters?.price_change_percent as number;
 
+    const fields = [
+      {
+        type: 'mrkdwn' as const,
+        text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
+      },
+      {
+        type: 'mrkdwn' as const,
+        text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
+      },
+      {
+        type: 'mrkdwn' as const,
+        text: `*Days Since Alert:*\n${threshold} days`,
+      },
+    ];
+
+    if (priceChangePercent !== undefined) {
+      fields.push({
+        type: 'mrkdwn' as const,
+        text: `*Price Change:*\n${formatPercentage(priceChangePercent)}`,
+      });
+    }
+
     return [
       {
         type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text: `*Stock:*\n${company_name || symbol} (${symbol})`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Days Since Alert:*\n${threshold} days`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Price Change:*\n${priceChangePercent ? formatPercentage(priceChangePercent) : 'N/A'}`,
-          },
-        ],
+        fields,
       },
     ];
   }
@@ -724,6 +796,14 @@ export function formatSlackAlert(event: AlertEvent): {
   blocks: KnownBlock[];
 } {
   const { condition, alert_id, triggered_at } = event.data;
+
+  // Only process triggered alerts
+  if (event.event !== 'alert.triggered') {
+    return {
+      text: `${event.data.symbol} Alert: ${event.event}`,
+      blocks: [],
+    };
+  }
 
   // Get header
   const headerText = getAlertHeader(event);
@@ -856,7 +936,9 @@ export function formatSlackAlert(event: AlertEvent): {
  * Format MA touch alerts
  */
 function formatMATouchAlert(event: AlertEvent): KnownBlock[] {
-  const { symbol, company_name, current_value, threshold, condition, parameters } = event.data;
+  const { symbol, company_name, current_value, threshold, condition, parameters, price } =
+    event.data;
+  const currentPrice = price ?? current_value;
   const maValue = (parameters?.ma_value as number) || threshold;
   const isAbove = condition === 'ma_touch_above';
 
@@ -866,11 +948,11 @@ function formatMATouchAlert(event: AlertEvent): KnownBlock[] {
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Stock:*\n${company_name || symbol} (${symbol})`,
+          text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Current Price:*\n${formatCurrency(current_value)}`,
+          text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
         },
         {
           type: 'mrkdwn',
@@ -892,26 +974,36 @@ function formatMATouchAlert(event: AlertEvent): KnownBlock[] {
  */
 function formatDefaultAlert(event: AlertEvent): KnownBlock {
   const { symbol, company_name, current_value, threshold, price } = event.data;
+  const currentPrice = price ?? 0;
+
+  const fields = [
+    {
+      type: 'mrkdwn' as const,
+      text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
+    },
+  ];
+
+  if (currentPrice > 0) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Current Price:*\n${formatCurrency(currentPrice)}`,
+    });
+  }
+
+  if (threshold) {
+    fields.push({
+      type: 'mrkdwn' as const,
+      text: `*Threshold:*\n${threshold}`,
+    });
+  }
+
+  fields.push({
+    type: 'mrkdwn' as const,
+    text: `*Current Value:*\n${current_value}`,
+  });
 
   return {
     type: 'section',
-    fields: [
-      {
-        type: 'mrkdwn',
-        text: `*Stock:*\n${company_name || symbol} (${symbol})`,
-      },
-      {
-        type: 'mrkdwn',
-        text: `*Current Price:*\n${formatCurrency(price ?? current_value)}`,
-      },
-      {
-        type: 'mrkdwn',
-        text: `*Threshold:*\n${threshold}`,
-      },
-      {
-        type: 'mrkdwn',
-        text: `*Current Value:*\n${current_value}`,
-      },
-    ],
+    fields,
   };
 }

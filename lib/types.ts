@@ -23,6 +23,36 @@ export const AlertEventSchema = z.object({
     pe_ratio: z.number().optional(),
     actual_value: z.number().optional(),
     company_name: z.string().optional(),
+    // Volume-related fields
+    volume: z.number().optional(),
+    average_volume: z.number().optional(),
+    // Price change fields
+    initial_price: z.number().optional(),
+    reference_price: z.number().optional(),
+    price_change_percent: z.number().optional(),
+    // Dividend fields
+    dividend_amount: z.number().optional(),
+    dividend_yield: z.number().optional(),
+    ex_dividend_date: z.string().optional(),
+    payment_date: z.string().optional(),
+    // Technical indicators
+    rsi_value: z.number().optional(),
+    ma_value: z.number().optional(),
+    ma_short: z.number().optional(),
+    ma_long: z.number().optional(),
+    // Fundamental data
+    eps: z.number().optional(),
+    forward_eps: z.number().optional(),
+    // 52-week data
+    week_52_high: z.number().optional(),
+    week_52_low: z.number().optional(),
+    previous_high: z.number().optional(),
+    previous_low: z.number().optional(),
+    // Time-based alerts
+    previous_close: z.number().optional(),
+    earnings_date: z.string().optional(),
+    reporting_time: z.string().optional(),
+    estimated_eps: z.number().optional(),
   }),
 });
 
