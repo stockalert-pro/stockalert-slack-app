@@ -1,15 +1,41 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { WebClient } from '@slack/web-api';
 import { installationRepo, oauthStateRepo } from '../../lib/db/repositories';
-import { requireEnv } from '../../lib/env-validator';
 import { getOAuthRedirectUrl } from '../../lib/constants';
 
-const SLACK_CLIENT_ID = requireEnv('SLACK_CLIENT_ID');
-const SLACK_CLIENT_SECRET = requireEnv('SLACK_CLIENT_SECRET');
-const SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI || getOAuthRedirectUrl();
+// Initialize these inside the handler to catch env errors properly
+let SLACK_CLIENT_ID: string;
+let SLACK_CLIENT_SECRET: string;
+let SLACK_REDIRECT_URI: string;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    // Load environment variables
+    SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || '';
+    SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || '';
+    SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI || getOAuthRedirectUrl();
+    
+    if (!SLACK_CLIENT_ID || !SLACK_CLIENT_SECRET) {
+      console.error('Missing Slack credentials:', {
+        client_id: !!SLACK_CLIENT_ID,
+        client_secret: !!SLACK_CLIENT_SECRET
+      });
+      return res.redirect(302, '/slack-error?error=missing_credentials');
+    }
+  } catch (envError: any) {
+    console.error('Environment variable error:', envError);
+    return res.redirect(302, '/slack-error?error=env_error');
+  }
+
   const { code, state, error } = req.query;
+
+  console.log('OAuth callback received:', { 
+    code: code ? 'present' : 'missing', 
+    state: state ? 'present' : 'missing', 
+    error,
+    client_id_length: SLACK_CLIENT_ID.length,
+    redirect_uri: SLACK_REDIRECT_URI
+  });
 
   if (error) {
     return res.redirect(302, '/slack-error?error=' + error);
@@ -76,8 +102,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Redirect to success page
     res.redirect(302, '/slack-success');
-  } catch (error) {
+  } catch (error: any) {
     console.error('OAuth error:', error);
-    res.redirect(302, '/slack-error');
+    console.error('OAuth error details:', {
+      message: error.message,
+      code: error.code,
+      data: error.data,
+      stack: error.stack
+    });
+    
+    // Try to get a meaningful error message
+    let errorCode = 'unknown';
+    if (error.data?.error) {
+      errorCode = error.data.error;
+    } else if (error.code) {
+      errorCode = error.code;
+    } else if (error.message) {
+      errorCode = encodeURIComponent(error.message.substring(0, 50));
+    }
+    
+    res.redirect(302, `/slack-error?error=${errorCode}`);
   }
 }
