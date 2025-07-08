@@ -1,0 +1,50 @@
+{
+  "display_information": {
+    "name": "StockAlert.pro",
+    "description": "Get real-time stock alerts in Slack",
+    "background_color": "#4A154B",
+    "long_description": "StockAlert.pro for Slack delivers real-time stock market alerts directly to your Slack channels. Never miss important price movements, volume spikes, or market events again."
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "StockAlert.pro",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/stockalert",
+        "url": "https://slack.stockalert.pro/api/slack/commands",
+        "description": "Manage StockAlert.pro notifications",
+        "usage_hint": "[help|test|status|channel|apikey]",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "https://slack.stockalert.pro/api/slack/oauth"
+    ],
+    "scopes": {
+      "bot": [
+        "channels:read",
+        "chat:write",
+        "chat:write.public",
+        "commands",
+        "im:write"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://slack.stockalert.pro/api/slack/events",
+      "bot_events": []
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://slack.stockalert.pro/api/slack/interactivity"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

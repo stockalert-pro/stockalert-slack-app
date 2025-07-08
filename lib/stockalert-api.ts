@@ -24,26 +24,32 @@ export class StockAlertAPI {
   private apiKey: string;
   private baseUrl: string;
 
-  constructor(apiKey: string, baseUrl: string = 'https://stockalert.pro/api/v1') {
+  constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
-    this.baseUrl = baseUrl;
+    // Allow override via environment variable or parameter
+    this.baseUrl = baseUrl || process.env.STOCKALERT_API_URL || 'https://stockalert.pro/api/public/v1';
   }
 
   /**
    * Create a new webhook in StockAlert.pro
    */
   async createWebhook(data: CreateWebhookRequest): Promise<WebhookResponse> {
-    const response = await fetch(`${this.baseUrl}/webhooks`, {
+    const url = `${this.baseUrl}/webhooks`;
+    console.log('Creating webhook at:', url, data);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
+        'X-API-Key': this.apiKey,
+        'Accept': 'application/json',
       },
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
       const error = await response.text();
+      console.error('Webhook creation error:', { status: response.status, error });
       throw new Error(`Failed to create webhook: ${response.status} ${error}`);
     }
 
@@ -54,13 +60,19 @@ export class StockAlertAPI {
    * List all webhooks
    */
   async listWebhooks(): Promise<WebhookResponse[]> {
-    const response = await fetch(`${this.baseUrl}/webhooks`, {
+    const url = `${this.baseUrl}/webhooks`;
+    console.log('Fetching webhooks from:', url);
+    
+    const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'X-API-Key': this.apiKey,
+        'Accept': 'application/json',
       },
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Webhook list error:', { status: response.status, error: errorText });
       throw new Error(`Failed to list webhooks: ${response.status}`);
     }
 
@@ -74,7 +86,7 @@ export class StockAlertAPI {
     const response = await fetch(`${this.baseUrl}/webhooks/${webhookId}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'X-API-Key': this.apiKey,
       },
     });
 
