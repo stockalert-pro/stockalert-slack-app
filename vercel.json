@@ -11,11 +11,11 @@
     },
     {
       "source": "/slack-success",
-      "destination": "/slack-success.html"
+      "destination": "/api/success"
     },
     {
       "source": "/slack-error",
-      "destination": "/slack-error.html"
+      "destination": "/api/error"
     }
   ],
   "headers": [

@@ -10,7 +10,7 @@ NC='\033[0m' # No Color
 # Configuration
 IMAGE_NAME="stockalert-slack-app"
 IMAGE_TAG="${1:-latest}"
-DOCKERFILE="${2:-Dockerfile}"
+DOCKERFILE="${2:-.docker/Dockerfile}"
 
 echo -e "${GREEN}Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}${NC}"
 
