@@ -11,6 +11,8 @@ Get real-time stock market alerts directly in your Slack workspace. Powered by [
 - 🎨 **Rich Formatting** - Beautiful Slack messages with price changes and action buttons
 - 🔒 **Secure** - HMAC-SHA256 webhook verification and OAuth 2.0
 - 👥 **Multi-Workspace** - Install on unlimited Slack workspaces
+- 🚀 **Automatic Setup** - Webhooks are created automatically via StockAlert.pro API
+- 🎯 **Interactive Onboarding** - Step-by-step setup with progress tracking
 
 ## Installation
 
@@ -18,7 +20,10 @@ Get real-time stock market alerts directly in your Slack workspace. Powered by [
 
 1. Visit [slack.stockalert.pro](https://slack.stockalert.pro)
 2. Click "Add to Slack"
-3. Choose a channel for alerts
+3. Follow the interactive setup:
+   - Choose your alert channel
+   - Connect your StockAlert.pro account with API key
+   - Test your integration
 4. Start receiving alerts!
 
 ### Manual Setup
@@ -49,17 +54,20 @@ If you prefer to self-host:
 
 Once installed, use these commands in any channel:
 
-- `/stockalert` - Show current webhook URL and status
-- `/stockalert help` - Display available commands
-- `/stockalert channel #alerts` - Set default alert channel
+- `/stockalert help` - Show available commands and setup progress
+- `/stockalert status` - Display integration status and webhook info
+- `/stockalert apikey <key>` - Connect your StockAlert.pro account
+- `/stockalert channel #channel` - Change alert channel
+- `/stockalert test` - Send a test notification
 
 ### Setting Up Alerts
 
-1. Run `/stockalert status` in Slack to get your webhook credentials
-2. Log in to [StockAlert.pro](https://stockalert.pro)
-3. Go to Settings → Integrations → Slack
-4. Enter your webhook URL and secret from step 1
-5. Create alerts and they'll appear in Slack!
+1. Generate an API key at [StockAlert.pro → API Keys](https://stockalert.pro/dashboard/api-keys)
+2. In Slack, run `/stockalert apikey sk_your_key_here`
+3. The webhook is automatically configured
+4. Create alerts and they'll appear in Slack!
+
+**Note**: Each Slack workspace gets its own webhook automatically.
 
 ### Alert Format
 
@@ -92,6 +100,7 @@ Current: $151.25 +0.83%
 - `GET /api/slack/install` - OAuth installation flow
 - `GET /api/slack/oauth` - OAuth callback
 - `POST /api/slack/commands` - Slash command handler
+- `POST /api/slack/interactivity` - Interactive component handler
 - `POST /api/webhooks/:teamId/stockalert` - Webhook receiver
 
 ### Database Schema
@@ -104,9 +113,20 @@ CREATE TABLE slack_installations (
   team_name TEXT NOT NULL,
   bot_token TEXT NOT NULL,
   bot_user_id TEXT NOT NULL,
-  default_channel TEXT,
-  webhook_url TEXT,
+  stockalert_api_key TEXT,
+  stockalert_webhook_id TEXT,
+  stockalert_webhook_secret TEXT,
   installed_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Slack channels
+CREATE TABLE slack_channels (
+  id SERIAL PRIMARY KEY,
+  team_id TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  channel_name TEXT,
+  is_default TEXT DEFAULT 'false',
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
 -- OAuth states for security
@@ -119,6 +139,8 @@ CREATE TABLE oauth_states (
 CREATE TABLE webhook_events (
   event_id TEXT PRIMARY KEY,
   team_id TEXT NOT NULL,
+  event_type TEXT,
+  payload JSONB,
   processed_at TIMESTAMP DEFAULT NOW()
 );
 ```
@@ -155,9 +177,9 @@ npm test
 | `SLACK_CLIENT_ID` | Slack OAuth client ID | Yes |
 | `SLACK_CLIENT_SECRET` | Slack OAuth client secret | Yes |
 | `SLACK_SIGNING_SECRET` | Slack request verification | Yes |
-| `STOCKALERT_WEBHOOK_SECRET` | Webhook signature verification | Yes |
 | `POSTGRES_URL` | Database connection string | Yes |
-| `BASE_URL` | Your app's base URL | Yes |
+| `BASE_URL` | Your app's base URL (e.g., https://slack.stockalert.pro) | Yes |
+| `STOCKALERT_API_URL` | StockAlert API base URL (defaults to production) | No |
 
 ## Deployment
 
