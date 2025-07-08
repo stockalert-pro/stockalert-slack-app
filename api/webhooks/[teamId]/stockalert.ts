@@ -133,12 +133,20 @@ export default async function handler(
       return res.status(401).json({ error: 'Missing signature' });
     }
 
-    // Log webhook receipt
+    // Log webhook receipt with full data for debugging
     console.log(`Webhook received for team ${teamId}:`, {
       event: body.event,
       symbol: body.data?.symbol,
       alertId: body.data?.alert_id,
       timestamp: body.timestamp,
+      condition: body.data?.condition,
+      threshold: body.data?.threshold,
+      current_value: body.data?.current_value,
+      // Log any additional fields that might be present
+      price: body.data?.price,
+      forward_pe: body.data?.forward_pe,
+      pe_ratio: body.data?.pe_ratio,
+      actual_value: body.data?.actual_value,
     });
 
     // Get webhook secret for this team (from API integration or fallback to global)

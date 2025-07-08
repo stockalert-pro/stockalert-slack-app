@@ -28,8 +28,24 @@ export function formatAlertMessage(event: AlertEvent): {
   let thresholdText = '';
   let currentText = '';
 
-  if (isFundamentalAlert || isRSIAlert) {
-    // P/E ratios and RSI are just numbers, not prices
+  if (isFundamentalAlert) {
+    // P/E ratios - check for specific ratio fields first
+    thresholdText = data.threshold.toFixed(2);
+
+    // For forward PE, check if we have the actual forward_pe value
+    if (data.condition.includes('forward_pe') && data.forward_pe !== undefined) {
+      currentText = data.forward_pe.toFixed(2);
+    } else if (data.condition.includes('pe_ratio') && data.pe_ratio !== undefined) {
+      currentText = data.pe_ratio.toFixed(2);
+    } else if (data.actual_value !== undefined) {
+      // Fallback to actual_value if provided
+      currentText = data.actual_value.toFixed(2);
+    } else {
+      // Last resort: use current_value
+      currentText = data.current_value.toFixed(2);
+    }
+  } else if (isRSIAlert) {
+    // RSI values
     thresholdText = data.threshold.toFixed(2);
     currentText = data.current_value.toFixed(2);
   } else if (isPercentageAlert) {
@@ -44,7 +60,12 @@ export function formatAlertMessage(event: AlertEvent): {
 
   // Calculate price/value change for context
   let changeText = '';
-  if (!isPercentageAlert && data.threshold !== 0) {
+
+  // For fundamental alerts, show if the condition is met rather than percentage change
+  if (isFundamentalAlert) {
+    // Don't show percentage for ratios
+    changeText = '';
+  } else if (!isPercentageAlert && data.threshold !== 0) {
     const changePercent = (((data.current_value - data.threshold) / data.threshold) * 100).toFixed(
       2
     );
@@ -108,23 +129,37 @@ export function formatAlertMessage(event: AlertEvent): {
   blocks.push(sectionBlock);
 
   // Add additional context for certain alert types
-  if (data.parameters && Object.keys(data.parameters).length > 0) {
-    const contextElements = [];
+  const contextElements = [];
 
-    // Add moving average period for MA alerts
-    if (data.condition.includes('ma_') && data.parameters.period) {
-      contextElements.push({
-        type: 'mrkdwn' as const,
-        text: `📊 ${data.parameters.period}-day moving average`,
-      });
-    }
+  // Add stock price context for fundamental alerts
+  if (isFundamentalAlert && data.price !== undefined) {
+    contextElements.push({
+      type: 'mrkdwn' as const,
+      text: `Stock Price: $${data.price.toFixed(2)}`,
+    });
+  }
 
-    if (contextElements.length > 0) {
-      blocks.push({
-        type: 'context',
-        elements: contextElements,
-      });
-    }
+  // Add moving average period for MA alerts
+  if (data.parameters && data.condition.includes('ma_') && data.parameters.period) {
+    contextElements.push({
+      type: 'mrkdwn' as const,
+      text: `📊 ${data.parameters.period}-day moving average`,
+    });
+  }
+
+  // Add company name if available
+  if (data.company_name) {
+    contextElements.push({
+      type: 'mrkdwn' as const,
+      text: `Company: ${data.company_name}`,
+    });
+  }
+
+  if (contextElements.length > 0) {
+    blocks.push({
+      type: 'context',
+      elements: contextElements,
+    });
   }
 
   // Use event.timestamp for the trigger time, fall back to data.triggered_at if available

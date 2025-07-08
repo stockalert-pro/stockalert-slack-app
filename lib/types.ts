@@ -17,6 +17,12 @@ export const AlertEventSchema = z.object({
     reason: z.string().optional(),
     parameters: z.record(z.unknown()).nullable(),
     test: z.boolean().optional(),
+    // Additional fields that might be present
+    price: z.number().optional(),
+    forward_pe: z.number().optional(),
+    pe_ratio: z.number().optional(),
+    actual_value: z.number().optional(),
+    company_name: z.string().optional(),
   }),
 });
 
