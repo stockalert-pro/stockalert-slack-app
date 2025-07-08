@@ -94,7 +94,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     if (!isValid) {
-      console.error('Signature verification failed');
+      console.error('Signature verification failed', {
+        secretPrefix: process.env.STOCKALERT_WEBHOOK_SECRET?.substring(0, 10),
+        secretLength: process.env.STOCKALERT_WEBHOOK_SECRET?.length
+      });
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
