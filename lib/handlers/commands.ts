@@ -254,7 +254,7 @@ async function handleCommandWithMonitoring(
           response_type: 'ephemeral',
           text:
             '❌ Please provide your StockAlert.pro API key\n\nExample: `/stockalert apikey sk_your_api_key_here`\n\n' +
-            'You can generate an API key at https://stockalert.pro/dashboard/api-keys',
+            'You can generate an API key at https://stockalert.pro/dashboard/settings',
         };
       }
 
@@ -264,7 +264,7 @@ async function handleCommandWithMonitoring(
           response_type: 'ephemeral',
           text:
             '❌ Please provide your StockAlert.pro API key\n\nExample: `/stockalert apikey sk_your_api_key_here`\n\n' +
-            'You can generate an API key at https://stockalert.pro/dashboard/api-keys',
+            'You can generate an API key at https://stockalert.pro/dashboard/settings',
         };
       }
 

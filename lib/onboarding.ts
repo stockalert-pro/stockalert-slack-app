@@ -160,7 +160,7 @@ export async function sendWelcomeMessage(
                 type: 'plain_text',
                 text: 'Create Alert',
               },
-              url: 'https://stockalert.pro/dashboard/alerts/new',
+              url: 'https://stockalert.pro/dashboard',
             },
           ],
         },
@@ -228,7 +228,7 @@ export function getApiKeyModal(): ModalView {
           type: 'mrkdwn' as const,
           text:
             '*To connect your StockAlert.pro account:*\n\n' +
-            '1. Go to <https://stockalert.pro/dashboard/api-keys|API Keys> in your dashboard\n' +
+            '1. Go to <https://stockalert.pro/dashboard/settings|Settings> in your dashboard\n' +
             '2. Click "Generate New API Key"\n' +
             '3. Copy the key and paste it below',
         },

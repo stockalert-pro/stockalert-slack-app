@@ -64,7 +64,7 @@ Once installed, use these commands in any channel:
 
 ### Setting Up Alerts
 
-1. Generate an API key at [StockAlert.pro → API Keys](https://stockalert.pro/dashboard/api-keys)
+1. Generate an API key at [StockAlert.pro → Settings](https://stockalert.pro/dashboard/settings)
 2. In Slack, run `/stockalert apikey sk_your_key_here`
 3. The webhook is automatically configured
 4. Create alerts and they'll appear in Slack!
