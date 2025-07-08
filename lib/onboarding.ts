@@ -37,6 +37,7 @@ export async function sendWelcomeMessage(
 
   await client.chat.postMessage({
     channel: dm.channel.id,
+    text: "👋 Welcome to StockAlert.pro for Slack! Let's get you set up.",
     blocks: [
       {
         type: 'header',

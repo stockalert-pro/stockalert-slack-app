@@ -19,13 +19,17 @@ export interface CreateWebhookRequest {
 
 export interface WebhookResponse {
   id: string;
-  name: string;
+  name?: string;
   url: string;
   secret: string;
   events: string[];
-  enabled: boolean;
+  enabled?: boolean;
+  is_active?: boolean;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
+  last_triggered_at?: string | null;
+  failure_count?: number;
+  metadata?: Record<string, any>;
 }
 
 export interface WebhookListResponse {

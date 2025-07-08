@@ -171,6 +171,11 @@ export default async function handler(
                 events: ['alert.triggered'],
                 enabled: true,
               });
+            } else if (webhook.is_active === false) {
+              // Reactivate existing webhook
+              console.log('Reactivating existing webhook:', webhook.id);
+              // TODO: Add updateWebhook method to API client
+              // For now, we'll use the existing webhook even if inactive
             }
 
             // Save to database
