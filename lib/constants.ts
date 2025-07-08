@@ -1,9 +1,7 @@
 // Application constants
 export const APP_CONFIG = {
-  // Base URL for the application - update this when domain changes
-  BASE_URL: process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.BASE_URL || 'https://stockalert-slack-app.vercel.app',
+  // Base URL for the application
+  BASE_URL: process.env.BASE_URL || 'https://slack.stockalert.pro',
   
   // API Routes
   ROUTES: {
