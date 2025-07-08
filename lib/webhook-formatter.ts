@@ -65,52 +65,107 @@ export function formatWebhookData(event: AlertEvent): FormattedAlertData {
   }
 
   // Format values based on alert type
+  const formattedData = formatAlertValues(
+    data.condition,
+    data.threshold,
+    data.current_value,
+    displayValue
+  );
+
+  return {
+    ...baseData,
+    displayValue,
+    ...formattedData,
+  };
+}
+
+/**
+ * Format alert values based on alert type
+ */
+function formatAlertValues(
+  condition: string,
+  threshold: number,
+  currentValue: number,
+  displayValue?: number
+): {
+  thresholdFormatted: string;
+  currentValueFormatted: string;
+  changeText?: string;
+} {
+  // Categorize alert types
   const isFundamentalAlert = [
     'pe_ratio_below',
     'pe_ratio_above',
     'forward_pe_below',
     'forward_pe_above',
-  ].includes(data.condition);
+  ].includes(condition);
 
   const isPercentageAlert = ['price_change_up', 'price_change_down', 'volume_change'].includes(
-    data.condition
+    condition
   );
 
-  const isRSIAlert = data.condition === 'rsi_limit';
+  const isRSIAlert = condition === 'rsi_limit';
 
-  // Format threshold and current values
+  const is52WeekAlert = ['new_high', 'new_low'].includes(condition);
+
+  const isMovingAverageAlert = condition.includes('ma_');
+
+  const isEventAlert = [
+    'earnings_announcement',
+    'dividend_ex_date',
+    'dividend_payment',
+    'reminder',
+    'daily_reminder',
+  ].includes(condition);
+
   let thresholdFormatted = '';
   let currentValueFormatted = '';
+  let changeText: string | undefined;
 
   if (isFundamentalAlert) {
-    thresholdFormatted = data.threshold.toFixed(2);
-    // Use the specific ratio value if available, otherwise fall back
-    const ratioValue = displayValue ?? data.current_value;
+    // P/E and Forward P/E ratios
+    thresholdFormatted = threshold.toFixed(2);
+    const ratioValue = displayValue ?? currentValue;
     currentValueFormatted = ratioValue.toFixed(2);
   } else if (isRSIAlert) {
-    thresholdFormatted = data.threshold.toFixed(2);
-    currentValueFormatted = data.current_value.toFixed(2);
+    // RSI values
+    thresholdFormatted = threshold.toFixed(0);
+    currentValueFormatted = currentValue.toFixed(0);
   } else if (isPercentageAlert) {
-    thresholdFormatted = `${data.threshold}%`;
-    currentValueFormatted = `${data.current_value}%`;
+    // For percentage alerts, the values are already percentages
+    thresholdFormatted = `${threshold.toFixed(1)}%`;
+    currentValueFormatted = `${Math.abs(currentValue).toFixed(1)}%`;
+  } else if (is52WeekAlert) {
+    // 52-week highs/lows don't have a threshold
+    thresholdFormatted = 'N/A';
+    currentValueFormatted = `$${currentValue.toFixed(2)}`;
+  } else if (isMovingAverageAlert) {
+    // Moving average alerts
+    if (condition.includes('crossover')) {
+      thresholdFormatted = 'Crossover';
+      currentValueFormatted = `$${currentValue.toFixed(2)}`;
+    } else {
+      // MA touch alerts
+      thresholdFormatted = `$${threshold.toFixed(2)}`;
+      currentValueFormatted = `$${currentValue.toFixed(2)}`;
+    }
+  } else if (isEventAlert) {
+    // Event-based alerts don't have meaningful thresholds
+    thresholdFormatted = 'N/A';
+    currentValueFormatted = 'Triggered';
   } else {
     // Price alerts
-    thresholdFormatted = `$${data.threshold.toFixed(2)}`;
-    currentValueFormatted = `$${data.current_value.toFixed(2)}`;
-  }
+    thresholdFormatted = `$${threshold.toFixed(2)}`;
+    currentValueFormatted = `$${currentValue.toFixed(2)}`;
 
-  // Calculate change text for non-fundamental alerts
-  let changeText: string | undefined;
-  if (!isFundamentalAlert && !isPercentageAlert && data.threshold !== 0) {
-    const changePercent = (((data.current_value - data.threshold) / data.threshold) * 100).toFixed(
-      2
-    );
-    changeText = changePercent.startsWith('-') ? `(${changePercent}%)` : `(+${changePercent}%)`;
+    // Calculate percentage change for price alerts
+    if (threshold !== 0) {
+      const changePercent = (((currentValue - threshold) / threshold) * 100).toFixed(1);
+      changeText = changePercent.startsWith('-') ? `(${changePercent}%)` : `(+${changePercent}%)`;
+    }
   }
 
   return {
-    ...baseData,
-    displayValue,
     thresholdFormatted,
     currentValueFormatted,
     changeText,
@@ -124,7 +179,9 @@ export function getAlertLabels(condition: string): {
   targetLabel: string;
   currentLabel: string;
   showStockPrice: boolean;
+  hideThreshold?: boolean;
 } {
+  // Categorize alert types
   const isFundamentalAlert = [
     'pe_ratio_below',
     'pe_ratio_above',
@@ -133,9 +190,22 @@ export function getAlertLabels(condition: string): {
   ].includes(condition);
 
   const isRSIAlert = condition === 'rsi_limit';
+
   const isPercentageAlert = ['price_change_up', 'price_change_down', 'volume_change'].includes(
     condition
   );
+
+  const is52WeekAlert = ['new_high', 'new_low'].includes(condition);
+
+  const isMovingAverageAlert = condition.includes('ma_');
+
+  const isEventAlert = [
+    'earnings_announcement',
+    'dividend_ex_date',
+    'dividend_payment',
+    'reminder',
+    'daily_reminder',
+  ].includes(condition);
 
   if (isFundamentalAlert) {
     return {
@@ -155,10 +225,39 @@ export function getAlertLabels(condition: string): {
       currentLabel: 'Change',
       showStockPrice: true,
     };
-  } else {
+  } else if (is52WeekAlert) {
     return {
-      targetLabel: 'Target',
-      currentLabel: 'Current',
+      targetLabel: '52-Week Range',
+      currentLabel: 'Current Price',
+      showStockPrice: false,
+      hideThreshold: true,
+    };
+  } else if (isMovingAverageAlert) {
+    if (condition.includes('crossover')) {
+      return {
+        targetLabel: 'Signal',
+        currentLabel: 'Current Price',
+        showStockPrice: false,
+      };
+    } else {
+      return {
+        targetLabel: 'MA Level',
+        currentLabel: 'Current Price',
+        showStockPrice: false,
+      };
+    }
+  } else if (isEventAlert) {
+    return {
+      targetLabel: 'Event',
+      currentLabel: 'Status',
+      showStockPrice: true,
+      hideThreshold: true,
+    };
+  } else {
+    // Price alerts
+    return {
+      targetLabel: 'Target Price',
+      currentLabel: 'Current Price',
       showStockPrice: false,
     };
   }

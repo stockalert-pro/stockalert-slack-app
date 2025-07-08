@@ -67,15 +67,29 @@ function createAlertPayload(type: string = 'price_above') {
         },
       };
 
+    case 'price_change_up':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'GOOGL',
+          condition: 'price_change_up',
+          threshold: 5.0, // 5% increase threshold
+          current_value: 7.2, // Actual percentage increase
+          price: 142.8,
+        },
+      };
+
     case 'price_change_down':
       return {
         ...basePayload,
         data: {
           ...basePayload.data,
+          symbol: 'AMZN',
           condition: 'price_change_down',
-          threshold: 5.0, // 5% drop
-          current_value: -6.2, // Actual percentage drop
-          price: 188.75,
+          threshold: 3.0, // 3% drop threshold
+          current_value: -5.5, // Actual percentage drop (negative)
+          price: 178.5,
         },
       };
 
@@ -89,6 +103,32 @@ function createAlertPayload(type: string = 'price_above') {
           current_value: 72.5, // RSI value
           price: 205.5,
           parameters: { direction: 'above' },
+        },
+      };
+
+    case 'new_high':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'NVDA',
+          condition: 'new_high',
+          threshold: 0, // Not used for 52-week alerts
+          current_value: 850.0, // Current price at new high
+          price: 850.0,
+        },
+      };
+
+    case 'new_low':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'META',
+          condition: 'new_low',
+          threshold: 0, // Not used for 52-week alerts
+          current_value: 450.0, // Current price at new low
+          price: 450.0,
         },
       };
 
@@ -120,7 +160,7 @@ function createAlertPayload(type: string = 'price_above') {
 }
 
 // Get alert type from command line or default
-const alertType = process.argv[2] || 'forward_pe_below';
+const alertType = process.argv[2] || 'price_change_up';
 const payload = createAlertPayload(alertType);
 
 // Send webhook
@@ -208,18 +248,20 @@ Usage: npm run test:webhook [alert-type]
 Available alert types:
   - price_above         Price above threshold
   - price_below         Price below threshold
-  - price_change_up     Price increased by percentage
-  - price_change_down   Price decreased by percentage
+  - price_change_up     Price increased by percentage (GOOGL example)
+  - price_change_down   Price decreased by percentage (AMZN example)
   - forward_pe_below    Forward P/E below threshold (tests ratio formatting)
   - pe_ratio_above      P/E ratio above threshold
   - rsi_limit          RSI limit reached
   - ma_crossover_golden Golden cross signal
-  - new_high           52-week high
-  - new_low            52-week low
+  - new_high           52-week high (NVDA example)
+  - new_low            52-week low (META example)
   - volume_change      Volume spike
 
 Example:
   npm run test:webhook forward_pe_below
+  npm run test:webhook price_change_up
+  npm run test:webhook new_high
 `);
   process.exit(0);
 }

@@ -42,17 +42,23 @@ export function formatAlertMessage(event: AlertEvent): {
   // Add fields for threshold and current value
   const fields = [];
 
-  fields.push({
-    type: 'mrkdwn',
-    text: `*${labels.targetLabel}:*\n${formattedData.thresholdFormatted}`,
-  });
+  // Only show threshold if it's meaningful for this alert type
+  if (!labels.hideThreshold) {
+    fields.push({
+      type: 'mrkdwn',
+      text: `*${labels.targetLabel}:*\n${formattedData.thresholdFormatted}`,
+    });
+  }
 
   fields.push({
     type: 'mrkdwn',
     text: `*${labels.currentLabel}:*\n${formattedData.currentValueFormatted}${formattedData.changeText || ''}`,
   });
 
-  sectionBlock.fields = fields;
+  // Only add fields if we have any
+  if (fields.length > 0) {
+    sectionBlock.fields = fields;
+  }
   blocks.push(sectionBlock);
 
   // Add additional context for certain alert types
