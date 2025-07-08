@@ -95,7 +95,8 @@ async function handleCommandWithMonitoring(
                   '• `/stockalert help` - Show this help\n' +
                   '• `/stockalert status` - Check connection status\n' +
                   '• `/stockalert channel #channel` - Set alert channel\n' +
-                  '• `/stockalert apikey <key>` - Connect your account',
+                  '• `/stockalert apikey <key>` - Connect your account\n' +
+                  '• `/stockalert disconnect` - Remove StockAlert.pro connection',
               },
             },
           ],
@@ -122,7 +123,8 @@ async function handleCommandWithMonitoring(
                 '• `/stockalert test` - Send a test notification\n' +
                 '• `/stockalert status` - Show integration status\n' +
                 '• `/stockalert channel #channel` - Set notification channel\n' +
-                '• `/stockalert apikey <key>` - Update your StockAlert.pro API key',
+                '• `/stockalert apikey <key>` - Update your StockAlert.pro API key\n' +
+                '• `/stockalert disconnect` - Remove StockAlert.pro connection',
             },
           },
           {
@@ -339,6 +341,54 @@ async function handleCommandWithMonitoring(
         return {
           response_type: 'ephemeral',
           text: `❌ Failed to configure webhook: ${error.message}\n\nPlease check your API key and try again.`,
+        };
+      }
+    }
+
+    case 'disconnect': {
+      try {
+        const installation = await installationRepo.findByTeamId(command.team_id);
+
+        if (!installation?.stockalertApiKey) {
+          return {
+            response_type: 'ephemeral',
+            text: '❌ No StockAlert.pro connection found to disconnect.',
+          };
+        }
+
+        // Clear API connection data
+        await installationRepo.update(command.team_id, {
+          stockalertApiKey: null,
+          stockalertWebhookId: null,
+          stockalertWebhookSecret: null,
+        });
+
+        return {
+          response_type: 'ephemeral',
+          blocks: [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: '✅ *StockAlert.pro disconnected successfully*\n\nYour API key and webhook configuration have been removed.',
+              },
+            },
+            {
+              type: 'context',
+              elements: [
+                {
+                  type: 'mrkdwn',
+                  text: 'Run `/stockalert apikey <your-api-key>` to reconnect.',
+                },
+              ],
+            },
+          ],
+        };
+      } catch (error) {
+        console.error('Failed to disconnect StockAlert:', error);
+        return {
+          response_type: 'ephemeral',
+          text: '❌ Failed to disconnect. Please try again.',
         };
       }
     }
