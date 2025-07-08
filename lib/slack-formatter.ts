@@ -322,8 +322,8 @@ function formatMACrossoverAlert(event: AlertEvent, isGolden: boolean): KnownBloc
       {
         type: 'mrkdwn',
         text: isGolden
-          ? ':bulb: A golden cross is typically considered a bullish signal'
-          : ':warning: A death cross is typically considered a bearish signal',
+          ? '💡 A golden cross is typically considered a bullish signal'
+          : '⚠️ A death cross is typically considered a bearish signal',
       },
     ],
   });
