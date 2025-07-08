@@ -9,8 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "migrate:webhook-secrets": "tsx scripts/migrate-webhook-secrets.ts"
+    "db:studio": "drizzle-kit studio"
   },
   "keywords": [
     "stockalert",

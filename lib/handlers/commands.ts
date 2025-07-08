@@ -118,35 +118,15 @@ export async function handleSlashCommand(command: SlashCommand) {
         },
       ];
 
-      // Add webhook secret section if installation exists
-      if (installation && installation.webhookSecret) {
-        statusBlocks.push({
-          type: 'section',
-          text: {
+      statusBlocks.push({
+        type: 'context',
+        elements: [
+          {
             type: 'mrkdwn',
-            text: `*Webhook Secret:*\n\`${installation.webhookSecret}\``,
+            text: 'ℹ️ Copy this webhook URL to your StockAlert.pro account settings',
           },
-        });
-        statusBlocks.push({
-          type: 'context',
-          elements: [
-            {
-              type: 'mrkdwn',
-              text: 'Use this webhook URL and secret in your StockAlert.pro account settings',
-            },
-          ],
-        });
-      } else {
-        statusBlocks.push({
-          type: 'context',
-          elements: [
-            {
-              type: 'mrkdwn',
-              text: 'Use this webhook URL in your StockAlert.pro account settings',
-            },
-          ],
-        });
-      }
+        ],
+      });
       
       return {
         response_type: 'ephemeral',

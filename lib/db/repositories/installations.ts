@@ -1,19 +1,11 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../index';
 import { installations, type Installation, type NewInstallation } from '../schema';
-import { generateWebhookSecret } from '../../utils/webhook-secret';
-
 export class InstallationRepository {
   async create(data: NewInstallation): Promise<Installation> {
-    // Generate webhook secret if not provided
-    const installData = {
-      ...data,
-      webhookSecret: data.webhookSecret || generateWebhookSecret(),
-    };
-
     const [installation] = await db
       .insert(installations)
-      .values(installData)
+      .values(data)
       .onConflictDoUpdate({
         target: [installations.teamId, installations.enterpriseId],
         set: {
@@ -25,7 +17,6 @@ export class InstallationRepository {
           installerUserId: data.installerUserId,
           scope: data.scope,
           tokenType: data.tokenType,
-          // Don't update webhook secret on conflict - keep existing one
           updatedAt: new Date(),
         },
       })

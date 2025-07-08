@@ -86,26 +86,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       timestamp: body.timestamp
     });
     
-    // Get webhook secret for this team
-    const webhookSecret = installation.webhookSecret || process.env.STOCKALERT_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      console.error('No webhook secret configured for team', teamId);
-      return res.status(500).json({ error: 'Webhook secret not configured' });
-    }
-    
-    // Verify signature with raw body
+    // Verify signature with raw body using global secret
     const isValid = verifyWebhookSignature(
       rawBody,
       signature as string,
-      webhookSecret
+      process.env.STOCKALERT_WEBHOOK_SECRET!
     );
 
     if (!isValid) {
-      console.error('Signature verification failed', {
-        teamId,
-        secretPrefix: webhookSecret.substring(0, 10),
-        secretLength: webhookSecret.length
-      });
+      console.error('Signature verification failed');
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
