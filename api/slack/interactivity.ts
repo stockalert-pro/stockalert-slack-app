@@ -193,11 +193,18 @@ export default async function handler(
 
             // Continue onboarding
             await sendWelcomeMessage(client, payload.team.id, payload.user.id);
-          } catch {
+
+            // Return empty response to close the modal
+            return res.status(200).json({});
+          } catch (error) {
+            console.error('API key validation error:', error);
             return res.status(200).json({
               response_action: 'errors',
               errors: {
-                api_key_input: 'Invalid API key. Please check and try again.',
+                api_key_input:
+                  error instanceof Error
+                    ? error.message
+                    : 'Invalid API key. Please check and try again.',
               },
             });
           }
