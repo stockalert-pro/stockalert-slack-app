@@ -25,6 +25,22 @@ async function getRawBody(req: VercelRequest): Promise<Buffer> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Log all webhook requests
+  console.log(`Webhook ${req.method} request for team ${req.query.teamId}`, {
+    headers: req.headers['user-agent'],
+    referer: req.headers['referer'],
+    origin: req.headers['origin']
+  });
+
+  if (req.method === 'GET') {
+    // Return info for GET requests (useful for debugging)
+    return res.status(200).json({
+      message: 'StockAlert webhook endpoint',
+      method: 'POST required',
+      team: req.query.teamId
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
