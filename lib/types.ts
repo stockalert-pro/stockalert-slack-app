@@ -139,11 +139,6 @@ export const ALERT_TYPE_CONFIG = {
     color: '#FF4136',
     description: 'Forward P/E ratio above target',
   },
-  dividend_announcement: {
-    emoji: '💵',
-    color: '#3D9970',
-    description: 'Dividend announced',
-  },
   dividend_ex_date: {
     emoji: '📅',
     color: '#0074D9',

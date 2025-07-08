@@ -12,26 +12,116 @@ const WEBHOOK_URL = process.env['WEBHOOK_URL'] || `${BASE_URL}/api/webhooks/${TE
 const WEBHOOK_SECRET =
   process.env['WEBHOOK_SECRET'] || process.env['STOCKALERT_WEBHOOK_SECRET'] || null;
 
-// Sample webhook payload matching the expected format
-const payload = {
-  event: 'alert.triggered',
-  timestamp: new Date().toISOString(),
-  data: {
-    alert_id: 'alert_test_456',
-    symbol: 'AAPL',
-    company_name: 'Apple Inc.',
-    alert_type: 'price_above',
-    alert_name: 'Price went above $200',
-    condition: 'Price went above target',
-    target_value: '$200.00',
-    current_value: '$205.50',
-    price: 205.5,
-    price_change: 2.75,
-    price_change_percent: 1.35,
-    dashboard_url: 'https://stockalert.pro/dashboard',
-    alert_url: 'https://stockalert.pro/alerts/alert_test_456',
-  },
-};
+// Helper function to create different alert payloads
+function createAlertPayload(type: string = 'price_above') {
+  const basePayload = {
+    event: 'alert.triggered' as const,
+    timestamp: new Date().toISOString(),
+    data: {
+      alert_id: `alert_test_${Date.now()}`,
+      symbol: 'AAPL',
+      company_name: 'Apple Inc.',
+      triggered_at: new Date().toISOString(),
+      reason: 'Alert condition met',
+      parameters: null,
+    },
+  };
+
+  // Add type-specific fields based on OpenAPI spec
+  switch (type) {
+    case 'forward_pe_below':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'forward_pe_below',
+          threshold: 25.0,
+          current_value: 222.59, // This is the stock price
+          price: 222.59,
+          forward_pe: 22.5, // This is the actual Forward P/E ratio
+        },
+      };
+
+    case 'pe_ratio_above':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'pe_ratio_above',
+          threshold: 30.0,
+          current_value: 205.5, // Stock price
+          price: 205.5,
+          pe_ratio: 32.5, // Actual P/E ratio
+        },
+      };
+
+    case 'price_above':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'price_above',
+          threshold: 200.0,
+          current_value: 205.5,
+          price: 205.5,
+        },
+      };
+
+    case 'price_change_down':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'price_change_down',
+          threshold: 5.0, // 5% drop
+          current_value: -6.2, // Actual percentage drop
+          price: 188.75,
+        },
+      };
+
+    case 'rsi_limit':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'rsi_limit',
+          threshold: 70.0,
+          current_value: 72.5, // RSI value
+          price: 205.5,
+          parameters: { direction: 'above' },
+        },
+      };
+
+    case 'ma_crossover_golden':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'ma_crossover_golden',
+          threshold: 0, // Not used for crossovers
+          current_value: 205.5,
+          price: 205.5,
+          parameters: { short_period: 50, long_period: 200 },
+        },
+      };
+
+    default:
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: type,
+          threshold: 200.0,
+          current_value: 205.5,
+          price: 205.5,
+        },
+      };
+  }
+}
+
+// Get alert type from command line or default
+const alertType = process.argv[2] || 'forward_pe_below';
+const payload = createAlertPayload(alertType);
 
 // Send webhook
 async function sendTestWebhook(): Promise<void> {
@@ -67,19 +157,23 @@ async function sendTestWebhook(): Promise<void> {
     const signature = crypto.createHmac('sha256', secret).update(payloadString).digest('hex');
 
     // eslint-disable-next-line no-console
-    console.log('Sending test webhook to:', WEBHOOK_URL);
+    console.log('\n📨 Sending test webhook');
+    // eslint-disable-next-line no-console
+    console.log('Alert Type:', alertType);
+    // eslint-disable-next-line no-console
+    console.log('Webhook URL:', WEBHOOK_URL);
     // eslint-disable-next-line no-console
     console.log('Team ID:', TEAM_ID);
     // eslint-disable-next-line no-console
-    console.log('Payload:', JSON.stringify(payload, null, 2));
+    console.log('\nPayload:', JSON.stringify(payload, null, 2));
     // eslint-disable-next-line no-console
-    console.log('Signature:', signature);
+    console.log('\nSignature:', signature);
 
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-StockAlert-Signature': signature,
+        'X-Signature': `sha256=${signature}`, // Match OpenAPI spec format
         'X-StockAlert-Event': 'alert.triggered',
         'X-StockAlert-Timestamp': Date.now().toString(),
       },
@@ -104,6 +198,30 @@ async function sendTestWebhook(): Promise<void> {
     // Close database connection
     process.exit();
   }
+}
+
+// Show usage if help is requested
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log(`
+Usage: npm run test:webhook [alert-type]
+
+Available alert types:
+  - price_above         Price above threshold
+  - price_below         Price below threshold
+  - price_change_up     Price increased by percentage
+  - price_change_down   Price decreased by percentage
+  - forward_pe_below    Forward P/E below threshold (tests ratio formatting)
+  - pe_ratio_above      P/E ratio above threshold
+  - rsi_limit          RSI limit reached
+  - ma_crossover_golden Golden cross signal
+  - new_high           52-week high
+  - new_low            52-week low
+  - volume_change      Volume spike
+
+Example:
+  npm run test:webhook forward_pe_below
+`);
+  process.exit(0);
 }
 
 // Run the test
