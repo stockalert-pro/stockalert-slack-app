@@ -47,6 +47,8 @@ async function getRawBody(req: VercelRequest): Promise<string> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log('Interactivity endpoint called:', req.method);
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -59,7 +61,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const timestamp = req.headers['x-slack-request-timestamp'] as string;
     const signature = req.headers['x-slack-signature'] as string;
     
+    console.log('Verifying Slack signature...');
+    
     if (!verifySlackSignature(process.env.SLACK_SIGNING_SECRET!, signature, timestamp, rawBody)) {
+      console.error('Invalid Slack signature');
       return res.status(401).json({ error: 'Invalid signature' });
     }
     
@@ -68,9 +73,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       decodeURIComponent(rawBody).replace('payload=', '')
     );
     
+    console.log('Interaction payload:', {
+      type: payload.type,
+      action: payload.actions?.[0]?.action_id,
+      team: payload.team.id,
+      user: payload.user.id
+    });
+    
     // Get installation
     const installation = await installationRepo.findByTeamId(payload.team.id);
     if (!installation) {
+      console.error('Installation not found for team:', payload.team.id);
       return res.status(200).json({ error: 'Installation not found' });
     }
     
@@ -79,6 +92,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle different interaction types
     if (payload.type === 'block_actions') {
       const action = payload.actions?.[0];
+      
+      console.log('Handling action:', action?.action_id);
       
       switch (action?.action_id) {
         case 'select_channel':
@@ -195,6 +210,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({ ok: true });
   } catch (error) {
     console.error('Interactivity error:', error);
-    res.status(200).json({ error: 'Internal error' });
+    // Still return 200 to prevent Slack retries
+    res.status(200).json({ ok: false, error: 'Internal error' });
   }
 }
