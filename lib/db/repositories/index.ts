@@ -9,10 +9,7 @@ import { ChannelRepository } from './channels';
 import { OAuthStateRepository } from './oauth-states';
 import { WebhookEventRepository } from './webhook-events';
 
-// Run auto-migrations when repositories are first accessed
-import('../auto-migrate').catch((error) => {
-  console.error('[DB] Failed to run auto-migrations:', error);
-});
+// Auto-migrations disabled - database schema is now stable
 
 export const installationRepo = new InstallationRepository();
 export const channelRepo = new ChannelRepository();

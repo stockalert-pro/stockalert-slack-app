@@ -152,16 +152,13 @@ export default async function handler(
         .json({ error: 'Webhook not configured. Please run /stockalert apikey <your-api-key>' });
     }
 
-    // Extract signature from sha256= format if present
-    let signatureValue = signature;
-    if (signature && signature.startsWith('sha256=')) {
-      signatureValue = signature.substring(7);
-    }
-
-    // Verify signature with raw body
+    // The signature can come in different formats:
+    // - With prefix: "sha256=abc123..."
+    // - Without prefix: "abc123..."
+    // verifyWebhookSignature handles both formats
     const isValid = await measureAsync(
       'webhook.verifySignature',
-      () => Promise.resolve(verifyWebhookSignature(rawBody, signatureValue, webhookSecret)),
+      () => Promise.resolve(verifyWebhookSignature(rawBody, signature, webhookSecret)),
       { team: teamId }
     );
 
