@@ -1,9 +1,9 @@
 import { AlertEvent, ALERT_TYPE_CONFIG, AlertType } from './types';
-import { Block, KnownBlock } from '@slack/web-api';
+import { KnownBlock } from '@slack/web-api';
 
 export function formatAlertMessage(event: AlertEvent): {
   text: string;
-  blocks: (KnownBlock | Block)[];
+  blocks: KnownBlock[];
 } {
   const data = event.data;
   const config = ALERT_TYPE_CONFIG[data.condition as AlertType] || {
@@ -12,22 +12,26 @@ export function formatAlertMessage(event: AlertEvent): {
     description: data.condition,
   };
 
-  const priceChange = data.current_value && data.threshold
-    ? ((data.current_value - data.threshold) / data.threshold * 100).toFixed(2)
-    : null;
+  // Calculate price change only if both values are present
+  let changeText = '';
 
-  const changeText = priceChange
-    ? priceChange.startsWith('-')
-      ? `${priceChange}%`
-      : `+${priceChange}%`
-    : '';
+  if (
+    typeof data.current_value === 'number' &&
+    typeof data.threshold === 'number' &&
+    data.threshold !== 0
+  ) {
+    const changePercent = (((data.current_value - data.threshold) / data.threshold) * 100).toFixed(
+      2
+    );
+    changeText = changePercent.startsWith('-') ? `${changePercent}%` : `+${changePercent}%`;
+  }
 
   const text = `${config.emoji} ${data.symbol} Alert: ${config.description}`;
-  
+
   // Handle test alerts that might not have all fields
   const isTest = data.test === true;
 
-  const blocks: (KnownBlock | Block)[] = [
+  const blocks: KnownBlock[] = [
     {
       type: 'header',
       text: {
@@ -36,27 +40,41 @@ export function formatAlertMessage(event: AlertEvent): {
         emoji: true,
       },
     },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*${data.symbol}*\n${config.description}`,
-      },
-      fields: [
-        {
-          type: 'mrkdwn',
-          text: `*Target:*\n$${data.threshold.toFixed(2)}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Current:*\n$${data.current_value.toFixed(2)} ${changeText}`,
-        },
-      ],
-    },
   ];
 
-  if (data.triggered_at) {
-    const timestamp = new Date(data.triggered_at).toLocaleString();
+  // Build section with fields only if we have the data
+  const sectionBlock: any = {
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `*${data.symbol}*\n${config.description}`,
+    },
+  };
+
+  const fields = [];
+  if (typeof data.threshold === 'number') {
+    fields.push({
+      type: 'mrkdwn',
+      text: `*Target:*\n$${data.threshold.toFixed(2)}`,
+    });
+  }
+  if (typeof data.current_value === 'number') {
+    fields.push({
+      type: 'mrkdwn',
+      text: `*Current:*\n$${data.current_value.toFixed(2)} ${changeText}`,
+    });
+  }
+
+  if (fields.length > 0) {
+    sectionBlock.fields = fields;
+  }
+
+  blocks.push(sectionBlock);
+
+  // Use event.timestamp for the trigger time, fall back to data.triggered_at if available
+  const triggerTime = event.timestamp || data.triggered_at;
+  if (triggerTime) {
+    const timestamp = new Date(triggerTime).toLocaleString();
     blocks.push({
       type: 'context',
       elements: [
@@ -88,7 +106,9 @@ export function formatAlertMessage(event: AlertEvent): {
           text: 'Manage Alert',
           emoji: true,
         },
-        url: `https://stockalert.pro/dashboard/alerts/${data.alert_id}`,
+        url: data.alert_id
+          ? `https://stockalert.pro/dashboard/alerts/${data.alert_id}`
+          : 'https://stockalert.pro/dashboard/alerts',
         action_id: 'manage_alert',
       },
     ],

@@ -1,6 +1,12 @@
-import * as crypto from 'crypto';
-import { VercelRequest } from '@vercel/node';
+import * as crypto from 'node:crypto';
+import type { VercelRequest } from '@vercel/node';
 
+/**
+ * Verifies a Slack request using the signing secret
+ * @param req - Vercel request object
+ * @param signingSecret - Slack signing secret
+ * @returns Promise resolving to true if request is valid
+ */
 export async function verifySlackRequest(
   req: VercelRequest,
   signingSecret: string
@@ -9,12 +15,21 @@ export async function verifySlackRequest(
   const timestamp = req.headers['x-slack-request-timestamp'] as string;
 
   if (!signature || !timestamp) {
+    console.error('Missing Slack signature or timestamp headers');
+    return false;
+  }
+
+  // Validate timestamp format
+  const timestampNumber = parseInt(timestamp, 10);
+  if (isNaN(timestampNumber)) {
+    console.error('Invalid Slack timestamp format');
     return false;
   }
 
   // Check timestamp (within 5 minutes)
-  const time = Math.floor(Date.now() / 1000);
-  if (Math.abs(time - parseInt(timestamp)) > 300) {
+  const currentTime = Math.floor(Date.now() / 1000);
+  if (Math.abs(currentTime - timestampNumber) > 300) {
+    console.error('Slack request timestamp too old or too far in the future');
     return false;
   }
 
@@ -25,30 +40,52 @@ export async function verifySlackRequest(
     rawBody = req.body;
   } else if (req.body && typeof req.body === 'object') {
     // If body is already parsed, we need to reconstruct it
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(req.body)) {
-      params.append(key, String(value));
+    // This handles both JSON and URL-encoded bodies
+    try {
+      if (req.headers['content-type']?.includes('application/json')) {
+        rawBody = JSON.stringify(req.body);
+      } else {
+        // URL-encoded form data
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(req.body)) {
+          if (value !== undefined && value !== null) {
+            params.append(key, String(value));
+          }
+        }
+        rawBody = params.toString();
+      }
+    } catch (error) {
+      console.error('Failed to reconstruct request body:', error);
+      return false;
     }
-    rawBody = params.toString();
   } else {
     rawBody = '';
   }
-  
+
   const sigBasestring = `v0:${timestamp}:${rawBody}`;
 
   // Calculate expected signature
-  const mySignature = 'v0=' + crypto
-    .createHmac('sha256', signingSecret)
-    .update(sigBasestring, 'utf8')
-    .digest('hex');
+  const mySignature =
+    'v0=' + crypto.createHmac('sha256', signingSecret).update(sigBasestring, 'utf8').digest('hex');
 
-  // Compare signatures
-  return crypto.timingSafeEqual(
-    Buffer.from(mySignature, 'utf8'),
-    Buffer.from(signature, 'utf8')
-  );
+  // Compare signatures using timing-safe comparison
+  try {
+    return crypto.timingSafeEqual(Buffer.from(mySignature, 'utf8'), Buffer.from(signature, 'utf8'));
+  } catch (error) {
+    // Signatures have different lengths or encoding issues
+    console.error('Signature comparison failed:', error);
+    return false;
+  }
 }
 
+/**
+ * Verifies a Slack signature for a given body and timestamp
+ * @param signingSecret - Slack signing secret
+ * @param signature - The signature from X-Slack-Signature header
+ * @param timestamp - The timestamp from X-Slack-Request-Timestamp header
+ * @param body - The raw request body string
+ * @returns true if signature is valid
+ */
 export function verifySlackSignature(
   signingSecret: string,
   signature: string,
@@ -56,15 +93,28 @@ export function verifySlackSignature(
   body: string
 ): boolean {
   // Validate inputs
-  if (!signingSecret || !signature || !timestamp || !body) {
+  if (!signingSecret || !signature || !timestamp || body === null || body === undefined) {
     console.error('Missing required parameters for Slack signature verification');
     return false;
   }
 
+  // Validate timestamp format
+  const timestampNumber = parseInt(timestamp, 10);
+  if (isNaN(timestampNumber)) {
+    console.error('Invalid Slack timestamp format');
+    return false;
+  }
+
   // Check timestamp (within 5 minutes)
-  const time = Math.floor(Date.now() / 1000);
-  if (Math.abs(time - parseInt(timestamp)) > 300) {
-    console.error('Slack request timestamp too old');
+  const currentTime = Math.floor(Date.now() / 1000);
+  if (Math.abs(currentTime - timestampNumber) > 300) {
+    console.error('Slack request timestamp too old or too far in the future');
+    return false;
+  }
+
+  // Validate signature format (should start with v0=)
+  if (!signature.startsWith('v0=')) {
+    console.error('Invalid Slack signature format');
     return false;
   }
 
@@ -72,18 +122,14 @@ export function verifySlackSignature(
   const sigBasestring = `v0:${timestamp}:${body}`;
 
   // Calculate expected signature
-  const mySignature = 'v0=' + crypto
-    .createHmac('sha256', signingSecret)
-    .update(sigBasestring, 'utf8')
-    .digest('hex');
+  const mySignature =
+    'v0=' + crypto.createHmac('sha256', signingSecret).update(sigBasestring, 'utf8').digest('hex');
 
-  // Compare signatures
+  // Compare signatures using timing-safe comparison
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(mySignature, 'utf8'),
-      Buffer.from(signature, 'utf8')
-    );
+    return crypto.timingSafeEqual(Buffer.from(mySignature, 'utf8'), Buffer.from(signature, 'utf8'));
   } catch (error) {
+    // Signatures have different lengths or encoding issues
     console.error('Signature comparison failed:', error);
     return false;
   }

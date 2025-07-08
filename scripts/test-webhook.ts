@@ -1,16 +1,16 @@
 #!/usr/bin/env tsx
 
-import crypto from 'crypto';
-import fetch from 'node-fetch';
+import * as crypto from 'crypto';
 import { db } from '../lib/db';
 import { installations } from '../lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 // Configuration - now with team ID support
-const TEAM_ID = process.env.TEAM_ID || 'T1234567890';
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const WEBHOOK_URL = process.env.WEBHOOK_URL || `${BASE_URL}/api/webhooks/${TEAM_ID}/stockalert`;
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || process.env.STOCKALERT_WEBHOOK_SECRET || null;
+const TEAM_ID = process.env['TEAM_ID'] || 'T1234567890';
+const BASE_URL = process.env['BASE_URL'] || 'http://localhost:3000';
+const WEBHOOK_URL = process.env['WEBHOOK_URL'] || `${BASE_URL}/api/webhooks/${TEAM_ID}/stockalert`;
+const WEBHOOK_SECRET =
+  process.env['WEBHOOK_SECRET'] || process.env['STOCKALERT_WEBHOOK_SECRET'] || null;
 
 // Sample webhook payload matching the expected format
 const payload = {
@@ -25,7 +25,7 @@ const payload = {
     condition: 'Price went above target',
     target_value: '$200.00',
     current_value: '$205.50',
-    price: 205.50,
+    price: 205.5,
     price_change: 2.75,
     price_change_percent: 1.35,
     dashboard_url: 'https://stockalert.pro/dashboard',
@@ -34,41 +34,45 @@ const payload = {
 };
 
 // Send webhook
-async function sendTestWebhook() {
+async function sendTestWebhook(): Promise<void> {
   try {
     // Get webhook secret for the team if not provided
     let secret = WEBHOOK_SECRET;
     if (!secret) {
+      // eslint-disable-next-line no-console
       console.log(`Looking up webhook secret for team ${TEAM_ID}...`);
       const [installation] = await db
         .select()
         .from(installations)
         .where(eq(installations.teamId, TEAM_ID))
         .limit(1);
-      
+
       if (!installation) {
         console.error(`No installation found for team ${TEAM_ID}`);
         process.exit(1);
       }
-      
-      secret = installation.webhookSecret || process.env.STOCKALERT_WEBHOOK_SECRET;
+
+      secret =
+        installation.stockalertWebhookSecret || process.env['STOCKALERT_WEBHOOK_SECRET'] || null;
       if (!secret) {
         console.error('No webhook secret found for this team');
         process.exit(1);
       }
+      // eslint-disable-next-line no-console
       console.log('Found webhook secret for team');
     }
 
     // Generate signature with the correct secret
     const payloadString = JSON.stringify(payload);
-    const signature = crypto
-      .createHmac('sha256', secret)
-      .update(payloadString)
-      .digest('hex');
+    const signature = crypto.createHmac('sha256', secret).update(payloadString).digest('hex');
 
+    // eslint-disable-next-line no-console
     console.log('Sending test webhook to:', WEBHOOK_URL);
+    // eslint-disable-next-line no-console
     console.log('Team ID:', TEAM_ID);
+    // eslint-disable-next-line no-console
     console.log('Payload:', JSON.stringify(payload, null, 2));
+    // eslint-disable-next-line no-console
     console.log('Signature:', signature);
 
     const response = await fetch(WEBHOOK_URL, {
@@ -83,10 +87,13 @@ async function sendTestWebhook() {
     });
 
     const responseText = await response.text();
+    // eslint-disable-next-line no-console
     console.log('\nResponse Status:', response.status);
+    // eslint-disable-next-line no-console
     console.log('Response:', responseText);
 
     if (response.ok) {
+      // eslint-disable-next-line no-console
       console.log('\n✅ Webhook sent successfully!');
     } else {
       console.error('\n❌ Webhook failed!');

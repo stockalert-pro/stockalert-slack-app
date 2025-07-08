@@ -3,7 +3,7 @@ import { db } from '../index';
 import { installations, type Installation, type NewInstallation } from '../schema';
 export class InstallationRepository {
   async create(data: NewInstallation): Promise<Installation> {
-    const [installation] = await db
+    const result = await db
       .insert(installations)
       .values(data)
       .onConflictDoUpdate({
@@ -21,20 +21,20 @@ export class InstallationRepository {
         },
       })
       .returning();
-    
-    return installation;
+
+    if (!result.length || !result[0]) {
+      throw new Error('Failed to create installation');
+    }
+
+    return result[0];
   }
 
   async findByTeamId(teamId: string, enterpriseId?: string): Promise<Installation | null> {
-    const conditions = enterpriseId 
+    const conditions = enterpriseId
       ? and(eq(installations.teamId, teamId), eq(installations.enterpriseId, enterpriseId))
       : and(eq(installations.teamId, teamId));
 
-    const [installation] = await db
-      .select()
-      .from(installations)
-      .where(conditions)
-      .limit(1);
+    const [installation] = await db.select().from(installations).where(conditions).limit(1);
 
     return installation || null;
   }
@@ -50,11 +50,9 @@ export class InstallationRepository {
   }
 
   async delete(teamId: string): Promise<boolean> {
-    const result = await db
-      .delete(installations)
-      .where(eq(installations.teamId, teamId));
+    const result = await db.delete(installations).where(eq(installations.teamId, teamId));
 
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async listAll(): Promise<Installation[]> {

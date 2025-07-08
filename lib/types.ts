@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-// StockAlert.pro actual webhook payload schema
+/**
+ * StockAlert.pro webhook payload schema
+ * This is the current schema used by the StockAlert.pro API
+ */
 export const AlertEventSchema = z.object({
   event: z.enum(['alert.triggered', 'alert.created', 'alert.updated', 'alert.deleted']),
   timestamp: z.string(),
@@ -12,12 +15,16 @@ export const AlertEventSchema = z.object({
     current_value: z.number(),
     triggered_at: z.string(),
     reason: z.string().optional(),
-    parameters: z.any().nullable(),
+    parameters: z.record(z.unknown()).nullable(),
     test: z.boolean().optional(),
   }),
 });
 
-// Legacy schema for compatibility
+/**
+ * Legacy webhook payload schema
+ * Maintained for backward compatibility with older webhook formats
+ * @deprecated Use AlertEventSchema for new implementations
+ */
 export const LegacyAlertEventSchema = z.object({
   event_id: z.string(),
   type: z.enum(['alert.triggered', 'alert.created', 'alert.updated', 'alert.deleted']),
@@ -38,8 +45,13 @@ export const LegacyAlertEventSchema = z.object({
   }),
 });
 
+/** Inferred type from the AlertEventSchema */
 export type AlertEvent = z.infer<typeof AlertEventSchema>;
 
+/**
+ * Configuration for different alert types
+ * Maps alert condition types to their display properties
+ */
 export const ALERT_TYPE_CONFIG = {
   price_above: {
     emoji: '📈',
@@ -153,4 +165,5 @@ export const ALERT_TYPE_CONFIG = {
   },
 } as const;
 
+/** Valid alert type keys */
 export type AlertType = keyof typeof ALERT_TYPE_CONFIG;

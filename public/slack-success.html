@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Successfully installed StockAlert.pro for your Slack workspace">
   <title>Success - StockAlert.pro for Slack</title>
   <style>
     body {
@@ -34,16 +35,20 @@
       font-weight: 600;
     }
     .button:hover { background: #00684a; }
+    .button:focus { 
+      outline: 3px solid #007a5a;
+      outline-offset: 2px;
+    }
     .emoji { font-size: 48px; margin-bottom: 16px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="emoji">🎉</div>
+  <main class="container" role="main">
+    <div class="emoji" role="img" aria-label="Party popper">🎉</div>
     <h1>Success!</h1>
     <p>StockAlert.pro has been added to your Slack workspace. You can now close this tab and return to Slack.</p>
     <p>Type <code>/stockalert help</code> in any channel to get started.</p>
-    <a href="https://slack.com" class="button">Open Slack</a>
-  </div>
+    <a href="https://slack.com" class="button" rel="noopener noreferrer" role="button">Open Slack</a>
+  </main>
 </body>
 </html>

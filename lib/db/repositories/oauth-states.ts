@@ -1,20 +1,18 @@
 import { eq, lt } from 'drizzle-orm';
 import { db } from '../index';
-import { oauthStates, type OAuthState, type NewOAuthState } from '../schema';
+import { oauthStates, type OAuthState } from '../schema';
 import * as crypto from 'crypto';
 
 export class OAuthStateRepository {
-  async create(metadata?: any): Promise<string> {
+  async create(metadata?: Record<string, unknown>): Promise<string> {
     const state = crypto.randomBytes(16).toString('hex');
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    await db
-      .insert(oauthStates)
-      .values({
-        state,
-        metadata,
-        expiresAt,
-      });
+    await db.insert(oauthStates).values({
+      state,
+      metadata,
+      expiresAt,
+    });
 
     return state;
   }
@@ -39,10 +37,8 @@ export class OAuthStateRepository {
   }
 
   async cleanupExpired(): Promise<number> {
-    const result = await db
-      .delete(oauthStates)
-      .where(lt(oauthStates.expiresAt, new Date()));
+    const result = await db.delete(oauthStates).where(lt(oauthStates.expiresAt, new Date()));
 
-    return result.rowCount;
+    return result.rowCount ?? 0;
   }
 }

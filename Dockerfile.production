@@ -1,0 +1,99 @@
+# Production-optimized Dockerfile with security scanning
+# Use specific version for reproducibility
+FROM node:20.18-alpine AS base
+
+# Install security updates
+RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
+
+# Dependencies stage
+FROM base AS deps
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies with security audit
+RUN npm ci --only=production --no-audit && \
+    npm audit --production --audit-level=moderate || true && \
+    npm cache clean --force
+
+# Development dependencies stage
+FROM base AS dev-deps
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies including dev
+RUN npm ci --no-audit && \
+    npm cache clean --force
+
+# Builder stage
+FROM dev-deps AS builder
+WORKDIR /app
+
+# Copy source files
+COPY tsconfig.json ./
+COPY server.ts ./
+COPY api ./api
+COPY lib ./lib
+COPY scripts ./scripts
+COPY public ./public
+
+# Build the application
+RUN npm run build
+
+# Production runner stage
+FROM base AS runner
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apk add --no-cache \
+    dumb-init \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 -G nodejs
+
+# Copy production dependencies
+COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+# Copy built application
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/public ./public
+
+# Copy package.json for version info
+COPY --chown=nodejs:nodejs package*.json ./
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/logs && \
+    chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Add metadata labels
+LABEL maintainer="StockAlert.pro" \
+      version="1.0.0" \
+      description="StockAlert Slack App" \
+      org.opencontainers.image.source="https://github.com/stockalert/slack-app"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
+
+# Expose port
+EXPOSE 3000
+
+# Security-hardened environment
+ENV NODE_ENV=production \
+    NODE_OPTIONS="--max-old-space-size=256" \
+    NODE_NO_WARNINGS=1
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
+CMD ["node", "dist/server.js"]

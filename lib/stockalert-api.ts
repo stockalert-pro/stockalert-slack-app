@@ -2,14 +2,22 @@
  * StockAlert.pro API client for webhook management
  */
 
-interface CreateWebhookRequest {
+// Type guard to check if object has a property
+function hasProperty<T extends object, K extends PropertyKey>(
+  obj: T,
+  key: K
+): obj is T & Record<K, unknown> {
+  return key in obj;
+}
+
+export interface CreateWebhookRequest {
   name: string;
   url: string;
   events: string[];
   enabled?: boolean;
 }
 
-interface WebhookResponse {
+export interface WebhookResponse {
   id: string;
   name: string;
   url: string;
@@ -20,14 +28,31 @@ interface WebhookResponse {
   updated_at: string;
 }
 
+export interface WebhookListResponse {
+  webhooks?: WebhookResponse[];
+  data?: WebhookResponse[];
+}
+
+export class StockAlertAPIError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public responseText?: string
+  ) {
+    super(message);
+    this.name = 'StockAlertAPIError';
+  }
+}
+
 export class StockAlertAPI {
-  private apiKey: string;
-  private baseUrl: string;
+  private readonly apiKey: string;
+  private readonly baseUrl: string;
 
   constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
     // Use STOCKALERT_API_URL env var or default, NOT BASE_URL
-    this.baseUrl = baseUrl || process.env.STOCKALERT_API_URL || 'https://stockalert.pro/api/public/v1';
+    this.baseUrl =
+      baseUrl || process.env['STOCKALERT_API_URL'] || 'https://stockalert.pro/api/public/v1';
   }
 
   /**
@@ -36,24 +61,28 @@ export class StockAlertAPI {
   async createWebhook(data: CreateWebhookRequest): Promise<WebhookResponse> {
     const url = `${this.baseUrl}/webhooks`;
     console.log('Creating webhook at:', url, data);
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': this.apiKey,
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Webhook creation error:', { status: response.status, error });
-      throw new Error(`Failed to create webhook: ${response.status} ${error}`);
+      const errorText = await response.text();
+      console.error('Webhook creation error:', { status: response.status, error: errorText });
+      throw new StockAlertAPIError(
+        `Failed to create webhook: ${errorText}`,
+        response.status,
+        errorText
+      );
     }
 
-    return response.json();
+    return response.json() as Promise<WebhookResponse>;
   }
 
   /**
@@ -62,34 +91,43 @@ export class StockAlertAPI {
   async listWebhooks(): Promise<WebhookResponse[]> {
     const url = `${this.baseUrl}/webhooks`;
     console.log('Fetching webhooks from:', url);
-    
+
     const response = await fetch(url, {
       headers: {
         'X-API-Key': this.apiKey,
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Webhook list error:', { status: response.status, error: errorText });
-      throw new Error(`Failed to list webhooks: ${response.status}`);
+      throw new StockAlertAPIError(
+        `Failed to list webhooks: ${errorText}`,
+        response.status,
+        errorText
+      );
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as unknown;
     console.log('Webhook API response:', data);
-    
+
     // Handle different response formats - API might return {webhooks: [...]} or {data: [...]}
     if (Array.isArray(data)) {
-      return data;
-    } else if (data.webhooks && Array.isArray(data.webhooks)) {
-      return data.webhooks;
-    } else if (data.data && Array.isArray(data.data)) {
-      return data.data;
-    } else {
-      console.error('Unexpected webhook list format:', data);
-      return [];
+      return data as WebhookResponse[];
     }
+
+    if (typeof data === 'object' && data !== null) {
+      if (hasProperty(data, 'webhooks') && Array.isArray(data.webhooks)) {
+        return data.webhooks as WebhookResponse[];
+      }
+      if (hasProperty(data, 'data') && Array.isArray(data.data)) {
+        return data.data as WebhookResponse[];
+      }
+    }
+
+    console.error('Unexpected webhook list format:', data);
+    return [];
   }
 
   /**
@@ -104,7 +142,12 @@ export class StockAlertAPI {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to delete webhook: ${response.status}`);
+      const errorText = await response.text();
+      throw new StockAlertAPIError(
+        `Failed to delete webhook: ${errorText}`,
+        response.status,
+        errorText
+      );
     }
   }
 
@@ -112,7 +155,12 @@ export class StockAlertAPI {
    * Find webhook by URL
    */
   async findWebhookByUrl(url: string): Promise<WebhookResponse | null> {
-    const webhooks = await this.listWebhooks();
-    return webhooks.find(w => w.url === url) || null;
+    try {
+      const webhooks = await this.listWebhooks();
+      return webhooks.find((w) => w.url === url) || null;
+    } catch (error) {
+      console.error('Error finding webhook by URL:', error);
+      throw error;
+    }
   }
 }

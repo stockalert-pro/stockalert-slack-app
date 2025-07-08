@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production
+dist/
+build/
+.vercel
+
+# Testing
+coverage/
+.nyc_output
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+
+# Cache
+.npm
+.eslintcache
+
+# Database
+drizzle/

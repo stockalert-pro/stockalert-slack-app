@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StockAlert.pro for Slack</title>
+  <meta name="description" content="Get real-time stock alerts directly in your Slack workspace. 21 alert types including price targets, moving averages, RSI, volume spikes, dividends, and earnings.">
+  <title>StockAlert.pro for Slack - Real-time Stock Alerts</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -59,6 +60,12 @@
       background-size: contain;
       border: 0;
       cursor: pointer;
+      text-indent: -9999px;
+      overflow: hidden;
+    }
+    .add-to-slack:focus {
+      outline: 3px solid #1264a3;
+      outline-offset: 2px;
     }
     .privacy {
       text-align: center;
@@ -69,6 +76,12 @@
     .privacy a {
       color: #1264a3;
       text-decoration: none;
+    }
+    .privacy a:hover,
+    .privacy a:focus {
+      text-decoration: underline;
+      outline: 2px solid #1264a3;
+      outline-offset: 2px;
     }
     .screenshots {
       margin: 40px 0;
@@ -82,15 +95,15 @@
   </style>
 </head>
 <body>
-  <div class="container">
+  <main class="container" role="main">
     <h1>StockAlert.pro for Slack</h1>
     <p class="subtitle">Get real-time stock alerts directly in your Slack workspace</p>
 
     <div class="cta">
-      <a href="/api/slack/install" class="add-to-slack"></a>
+      <a href="/api/slack/install" class="add-to-slack" aria-label="Add StockAlert.pro to Slack" title="Add to Slack">Add to Slack</a>
     </div>
 
-    <div class="features">
+    <section class="features" aria-label="Features">
       <div class="feature">
         <h3>📊 21 Alert Types</h3>
         <p>Price targets, moving averages, RSI, volume spikes, dividends, earnings, and more</p>
@@ -107,19 +120,21 @@
         <h3>🔒 Secure</h3>
         <p>Enterprise-grade security with encrypted webhooks and OAuth 2.0</p>
       </div>
-    </div>
+    </section>
 
-    <div class="screenshots">
-      <h2>How it looks in Slack</h2>
+    <section class="screenshots" aria-labelledby="screenshots-heading">
+      <h2 id="screenshots-heading">How it looks in Slack</h2>
       <p style="color: #616061; margin: 20px 0;">Clean, informative alerts that help you make better trading decisions</p>
       <!-- Add actual screenshots here -->
-    </div>
+    </section>
 
-    <div class="privacy">
-      <a href="https://stockalert.pro/privacy">Privacy Policy</a> • 
-      <a href="https://stockalert.pro/terms">Terms of Service</a> • 
-      <a href="https://github.com/stockalert-pro/stockalert-slack-app">Open Source</a>
-    </div>
-  </div>
+    <footer class="privacy" role="contentinfo">
+      <a href="https://stockalert.pro/privacy" rel="noopener noreferrer">Privacy Policy</a>
+      <span aria-hidden="true"> • </span>
+      <a href="https://stockalert.pro/terms" rel="noopener noreferrer">Terms of Service</a>
+      <span aria-hidden="true"> • </span>
+      <a href="https://github.com/stockalert-pro/stockalert-slack-app" rel="noopener noreferrer">Open Source</a>
+    </footer>
+  </main>
 </body>
 </html>

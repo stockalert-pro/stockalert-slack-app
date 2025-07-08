@@ -31,12 +31,14 @@ Get real-time stock market alerts directly in your Slack workspace. Powered by [
 If you prefer to self-host:
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/stockalert-pro/stockalert-slack-app.git
    cd stockalert-slack-app
    ```
 
 2. **Set up environment variables**
+
    ```bash
    cp .env.example .env
    # Edit .env with your credentials
@@ -172,14 +174,14 @@ npm test
 
 ### Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `SLACK_CLIENT_ID` | Slack OAuth client ID | Yes |
-| `SLACK_CLIENT_SECRET` | Slack OAuth client secret | Yes |
-| `SLACK_SIGNING_SECRET` | Slack request verification | Yes |
-| `POSTGRES_URL` | Database connection string | Yes |
-| `BASE_URL` | Your app's base URL (e.g., https://slack.stockalert.pro) | Yes |
-| `STOCKALERT_API_URL` | StockAlert API base URL (defaults to production) | No |
+| Variable               | Description                                              | Required |
+| ---------------------- | -------------------------------------------------------- | -------- |
+| `SLACK_CLIENT_ID`      | Slack OAuth client ID                                    | Yes      |
+| `SLACK_CLIENT_SECRET`  | Slack OAuth client secret                                | Yes      |
+| `SLACK_SIGNING_SECRET` | Slack request verification                               | Yes      |
+| `POSTGRES_URL`         | Database connection string                               | Yes      |
+| `BASE_URL`             | Your app's base URL (e.g., https://slack.stockalert.pro) | Yes      |
+| `STOCKALERT_API_URL`   | StockAlert API base URL (defaults to production)         | No       |
 
 ## Deployment
 
@@ -189,6 +191,8 @@ npm test
 2. Import to Vercel
 3. Add environment variables
 4. Deploy!
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
 
 ### Docker
 

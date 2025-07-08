@@ -31,7 +31,7 @@ npm start              # Run production build
 ## Architecture Overview
 
 ### Webhook Processing Flow
-1. StockAlert.pro sends webhook to `/api/webhooks/stockalert`
+1. StockAlert.pro sends webhook to `/api/webhooks/{teamId}/stockalert`
 2. Webhook signature verified using HMAC-SHA256
 3. Payload validated with Zod schema (`AlertEvent`)
 4. Message formatted using Slack Block Kit
@@ -55,7 +55,7 @@ npm start              # Run production build
 ## Critical Implementation Details
 
 ### Webhook Signature Verification
-Webhooks from StockAlert.pro must include `X-Signature` header with format `sha256=<signature>`. Verification uses HMAC-SHA256 with `STOCKALERT_WEBHOOK_SECRET`.
+Webhooks from StockAlert.pro must include `X-Signature` header with format `sha256=<signature>`. Verification uses HMAC-SHA256 with team-specific webhook secrets stored in the database.
 
 ### Slack Request Verification
 All Slack requests verified using `SLACK_SIGNING_SECRET`. Use `verifySlackRequest()` from `lib/slack-verify.ts`.
@@ -68,18 +68,19 @@ Rich Slack messages created in `lib/formatter.ts`. Always use Block Kit format, 
 - Action buttons for dashboard access
 
 ### Environment Variables Required
-- `SLACK_BOT_TOKEN` - Bot OAuth token (xoxb-...)
+- `SLACK_CLIENT_ID` - Slack OAuth client ID
+- `SLACK_CLIENT_SECRET` - Slack OAuth client secret
 - `SLACK_SIGNING_SECRET` - For request verification
-- `SLACK_APP_TOKEN` - App-level token (xapp-...)
-- `STOCKALERT_WEBHOOK_SECRET` - For webhook verification
+- `POSTGRES_URL` - Database connection string
+- `BASE_URL` - Your app's base URL
 
 ## Production-Ready Features
 
-**Database Integration**: Uses Vercel Postgres for persistent storage of installations, channels, and webhook events.
+**Database Integration**: Uses PostgreSQL (Neon recommended) for persistent storage of installations, channels, and webhook events.
 
 **Multi-Tenant Support**: Each Slack workspace has its own webhook URL: `/api/webhooks/{teamId}/stockalert`
 
-**Rate Limiting**: Implemented using Vercel KV:
+**Rate Limiting**: Can be implemented using Redis/Upstash KV (optional):
 - Webhooks: 100/minute per team
 - OAuth: 5 attempts per 15 minutes
 - Commands: 30/minute per user
@@ -95,7 +96,7 @@ Use the test script to simulate webhooks:
 npm run test:webhook
 ```
 
-For manual testing with curl, see `scripts/test-webhook.sh` for the required payload format and headers.
+For manual testing, the test script shows the required payload format and headers.
 
 ## StockAlert.pro Webhook Events
 
@@ -118,5 +119,5 @@ Only `alert.triggered` events are processed. Webhook payload structure:
 
 ### New Webhook Event Type
 1. Update `AlertEvent` schema in `lib/types.ts`
-2. Add handling logic in `/api/webhooks/stockalert.ts`
+2. Add handling logic in `/api/webhooks/[teamId]/stockalert.ts`
 3. Create appropriate formatter function

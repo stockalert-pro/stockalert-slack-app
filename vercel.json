@@ -12,10 +12,6 @@
     {
       "source": "/slack-error",
       "destination": "/slack-error.html"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
     }
   ],
   "headers": [

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Installation error page for StockAlert.pro Slack integration">
   <title>Error - StockAlert.pro for Slack</title>
   <style>
     body {
@@ -34,6 +35,10 @@
       font-weight: 600;
     }
     .button:hover { background: #1d1c1d; }
+    .button:focus { 
+      outline: 3px solid #1264a3;
+      outline-offset: 2px;
+    }
     .emoji { font-size: 48px; margin-bottom: 16px; }
     code {
       background: #f3f3f3;
@@ -44,19 +49,30 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="emoji">😕</div>
+  <main class="container" role="main">
+    <div class="emoji" role="img" aria-label="Confused face">😕</div>
     <h1>Installation Failed</h1>
     <p>Something went wrong during the installation process. This might happen if you cancelled the authorization or if there was a temporary issue.</p>
     <p>Error code: <code id="error-code">Unknown</code></p>
-    <a href="/" class="button">Try Again</a>
-  </div>
+    <a href="/" class="button" role="button">Try Again</a>
+  </main>
   <script>
-    // Get error from URL params
+    // Get error from URL params and sanitize it
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
     if (error) {
-      document.getElementById('error-code').textContent = error;
+      // Sanitize the error parameter to prevent XSS
+      const sanitizedError = error.replace(/[<>"'&]/g, function(char) {
+        const entities = {
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+          '&': '&amp;'
+        };
+        return entities[char];
+      });
+      document.getElementById('error-code').textContent = sanitizedError;
     }
   </script>
 </body>

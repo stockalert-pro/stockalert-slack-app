@@ -2,43 +2,40 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { WebClient } from '@slack/web-api';
 import { installationRepo, oauthStateRepo } from '../../lib/db/repositories';
 import { getOAuthRedirectUrl } from '../../lib/constants';
+import type { SlackOAuthConfig } from '../../lib/types/oauth';
 
-// Initialize these inside the handler to catch env errors properly
-let SLACK_CLIENT_ID: string;
-let SLACK_CLIENT_SECRET: string;
-let SLACK_REDIRECT_URI: string;
+// OAuth configuration loaded inside handler to catch env errors properly
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  try {
-    // Load environment variables
-    SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || '';
-    SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || '';
-    SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI || getOAuthRedirectUrl();
-    
-    if (!SLACK_CLIENT_ID || !SLACK_CLIENT_SECRET) {
-      console.error('Missing Slack credentials:', {
-        client_id: !!SLACK_CLIENT_ID,
-        client_secret: !!SLACK_CLIENT_SECRET
-      });
-      return res.redirect(302, '/slack-error?error=missing_credentials');
-    }
-  } catch (envError: any) {
-    console.error('Environment variable error:', envError);
-    return res.redirect(302, '/slack-error?error=env_error');
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<VercelResponse> {
+  // Load OAuth configuration
+  const oauthConfig: SlackOAuthConfig = {
+    clientId: process.env.SLACK_CLIENT_ID || '',
+    clientSecret: process.env.SLACK_CLIENT_SECRET || '',
+    redirectUri: process.env.SLACK_REDIRECT_URI || getOAuthRedirectUrl(),
+    scopes: '', // Not used in this handler
+  };
+
+  if (!oauthConfig.clientId || !oauthConfig.clientSecret) {
+    console.error('Missing Slack OAuth credentials');
+    return res.redirect(302, '/slack-error?error=missing_credentials');
   }
 
   const { code, state, error } = req.query;
 
-  console.log('OAuth callback received:', { 
-    code: code ? 'present' : 'missing', 
-    state: state ? 'present' : 'missing', 
-    error,
-    client_id_length: SLACK_CLIENT_ID.length,
-    redirect_uri: SLACK_REDIRECT_URI
+  console.log('OAuth callback received:', {
+    code: code ? 'present' : 'missing',
+    state: state ? 'present' : 'missing',
+    error: error ? 'present' : 'missing',
+    redirect_uri: oauthConfig.redirectUri,
   });
 
   if (error) {
-    return res.redirect(302, '/slack-error?error=' + error);
+    // Properly encode error parameter to prevent injection
+    const encodedError = encodeURIComponent(String(error));
+    return res.redirect(302, `/slack-error?error=${encodedError}`);
   }
 
   if (!code || typeof code !== 'string') {
@@ -59,10 +56,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Exchange code for access token
     const client = new WebClient();
     const result = await client.oauth.v2.access({
-      client_id: SLACK_CLIENT_ID,
-      client_secret: SLACK_CLIENT_SECRET,
+      client_id: oauthConfig.clientId,
+      client_secret: oauthConfig.clientSecret,
       code: code,
-      redirect_uri: SLACK_REDIRECT_URI,
+      redirect_uri: oauthConfig.redirectUri,
     });
 
     if (!result.ok || !result.access_token || !result.team?.id) {
@@ -89,38 +86,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Start onboarding process
     try {
       const { sendWelcomeMessage } = await import('../../lib/onboarding');
-      
+
       const botClient = new WebClient(result.access_token);
-      await sendWelcomeMessage(
-        botClient,
-        result.team.id,
-        result.authed_user?.id || ''
-      );
+      await sendWelcomeMessage(botClient, result.team.id, result.authed_user?.id || '');
     } catch (error) {
       console.error('Failed to send welcome message:', error);
     }
 
     // Redirect to success page
-    res.redirect(302, '/slack-success');
-  } catch (error: any) {
-    console.error('OAuth error:', error);
-    console.error('OAuth error details:', {
-      message: error.message,
-      code: error.code,
-      data: error.data,
-      stack: error.stack
+    return res.redirect(302, '/slack-success');
+  } catch (error: unknown) {
+    // Log error securely without exposing sensitive details
+    console.error('OAuth flow failed:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
     });
-    
-    // Try to get a meaningful error message
-    let errorCode = 'unknown';
-    if (error.data?.error) {
-      errorCode = error.data.error;
-    } else if (error.code) {
-      errorCode = error.code;
-    } else if (error.message) {
-      errorCode = encodeURIComponent(error.message.substring(0, 50));
+
+    // Determine error code without exposing internal details
+    let errorCode = 'oauth_failed';
+    if (error instanceof Error) {
+      // Map known errors to safe error codes
+      if (error.message.includes('invalid_code')) {
+        errorCode = 'invalid_code';
+      } else if (error.message.includes('expired')) {
+        errorCode = 'expired_code';
+      } else if (error.message.includes('invalid_client')) {
+        errorCode = 'invalid_client';
+      }
     }
-    
-    res.redirect(302, `/slack-error?error=${errorCode}`);
+
+    return res.redirect(302, `/slack-error?error=${errorCode}`);
   }
 }

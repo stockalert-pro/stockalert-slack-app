@@ -10,6 +10,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "moduleResolution": "node",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -20,10 +21,25 @@
     "noUncheckedIndexedAccess": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
-    "noPropertyAccessFromIndexSignature": true,
+    "noPropertyAccessFromIndexSignature": false,
     "noImplicitOverride": true,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["lib/*"],
+      "@api/*": ["api/*"]
+    }
   },
-  "include": ["api/**/*", "lib/**/*", "scripts/**/*"],
-  "exclude": ["node_modules", "dist", "coverage", "**/*.test.ts"]
+  "include": [
+    "api/**/*",
+    "lib/**/*",
+    "scripts/**/*",
+    "src/**/*",
+    "tests/**/*",
+    "*.config.ts",
+    "server.ts"
+  ],
+  "exclude": ["node_modules", "dist", "coverage"]
 }

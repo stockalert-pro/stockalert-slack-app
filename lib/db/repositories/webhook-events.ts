@@ -5,15 +5,21 @@ import { webhookEvents, type WebhookEvent, type NewWebhookEvent } from '../schem
 export class WebhookEventRepository {
   async create(data: NewWebhookEvent): Promise<WebhookEvent | null> {
     try {
-      const [event] = await db
-        .insert(webhookEvents)
-        .values(data)
-        .returning();
-      
-      return event;
-    } catch (error: any) {
+      const result = await db.insert(webhookEvents).values(data).returning();
+
+      if (!result.length || !result[0]) {
+        return null;
+      }
+
+      return result[0];
+    } catch (error) {
       // Handle duplicate event ID (idempotency)
-      if (error.code === '23505') { // PostgreSQL unique violation
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error as Record<string, unknown>).code === '23505'
+      ) {
+        // PostgreSQL unique violation
         return null;
       }
       throw error;
@@ -21,23 +27,23 @@ export class WebhookEventRepository {
   }
 
   async markProcessed(eventId: string): Promise<WebhookEvent | null> {
-    const [updated] = await db
+    const result = await db
       .update(webhookEvents)
       .set({ processedAt: new Date() })
       .where(eq(webhookEvents.eventId, eventId))
       .returning();
 
-    return updated || null;
+    return result[0] || null;
   }
 
   async findByEventId(eventId: string): Promise<WebhookEvent | null> {
-    const [event] = await db
+    const result = await db
       .select()
       .from(webhookEvents)
       .where(eq(webhookEvents.eventId, eventId))
       .limit(1);
 
-    return event || null;
+    return result[0] || null;
   }
 
   async findUnprocessed(limit = 100): Promise<WebhookEvent[]> {
@@ -61,11 +67,8 @@ export class WebhookEventRepository {
   async cleanup(olderThan: Date): Promise<number> {
     const result = await db
       .delete(webhookEvents)
-      .where(and(
-        lt(webhookEvents.createdAt, olderThan),
-        isNotNull(webhookEvents.processedAt)
-      ));
+      .where(and(lt(webhookEvents.createdAt, olderThan), isNotNull(webhookEvents.processedAt)));
 
-    return result.rowCount;
+    return result.rowCount ?? 0;
   }
 }
