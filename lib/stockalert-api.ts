@@ -26,7 +26,7 @@ export class StockAlertAPI {
 
   constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
-    // Allow override via environment variable or parameter
+    // Use STOCKALERT_API_URL env var or default, NOT BASE_URL
     this.baseUrl = baseUrl || process.env.STOCKALERT_API_URL || 'https://stockalert.pro/api/public/v1';
   }
 

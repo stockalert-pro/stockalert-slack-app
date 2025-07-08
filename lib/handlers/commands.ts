@@ -260,7 +260,7 @@ export async function handleSlashCommand(command: SlashCommand) {
               type: 'section',
               text: {
                 type: 'mrkdwn',
-                text: `Webhook has been automatically configured:\n• URL: \`${webhookUrl}\`\n• Events: Alert notifications\n• Status: Active`,
+                text: `Webhook has been automatically configured:\n• Webhook ID: \`${webhook.id}\`\n• Events: Alert notifications\n• Status: Active`,
               },
             },
             {
