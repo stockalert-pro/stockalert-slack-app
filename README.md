@@ -61,6 +61,7 @@ Once installed, use these commands in any channel:
 - `/stockalert apikey <key>` - Connect your StockAlert.pro account
 - `/stockalert channel #channel` - Change alert channel
 - `/stockalert test` - Send a test notification
+- `/stockalert disconnect` - Remove StockAlert.pro connection
 
 ### Setting Up Alerts
 
@@ -76,13 +77,12 @@ Once installed, use these commands in any channel:
 Alerts appear as rich Slack messages:
 
 ```
-📈 AAPL Alert: Price went above target
+AAPL Alert Triggered
 
-**Apple Inc.**
-Price went above target
+📈 Price went above target
 
 Target: $150.00
-Current: $151.25 +0.83%
+Current: $151.25 (+0.83%)
 
 [View Dashboard] [Manage Alert]
 ```
@@ -92,9 +92,11 @@ Current: $151.25 +0.83%
 ### Architecture
 
 - **Hosting**: Vercel Functions (Serverless)
-- **Database**: Neon PostgreSQL with Drizzle ORM
+- **Database**: Vercel PostgreSQL with Drizzle ORM
 - **Authentication**: Slack OAuth 2.0
-- **Security**: HMAC-SHA256 webhook signatures with team-specific secrets
+- **Security**: HMAC-SHA256 webhook signatures
+- **Caching**: Two-tier caching with Vercel KV
+- **Monitoring**: Built-in performance monitoring
 
 ### API Endpoints
 
@@ -127,7 +129,7 @@ CREATE TABLE slack_channels (
   team_id TEXT NOT NULL,
   channel_id TEXT NOT NULL,
   channel_name TEXT,
-  is_default TEXT DEFAULT 'false',
+  is_default BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -151,8 +153,8 @@ CREATE TABLE webhook_events (
 
 ### Prerequisites
 
-- Node.js 18+
-- PostgreSQL (or Neon account)
+- Node.js 20+
+- PostgreSQL (or Vercel Postgres account)
 - Slack App credentials
 - StockAlert.pro webhook secret
 
@@ -192,12 +194,10 @@ npm test
 3. Add environment variables
 4. Deploy!
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
-
 ### Docker
 
 ```bash
-docker build -t stockalert-slack .
+docker build -t stockalert-slack -f .docker/Dockerfile .
 docker run -p 3000:3000 --env-file .env stockalert-slack
 ```
 
