@@ -18,6 +18,12 @@ const logger = {
 
 async function runMigrations(): Promise<void> {
   try {
+    // Check if database URL is configured
+    if (!process.env['POSTGRES_URL']) {
+      logger.info('POSTGRES_URL not configured. Skipping auto-migration.');
+      return;
+    }
+
     logger.info('Checking database schema...');
 
     // Check if the table exists first
