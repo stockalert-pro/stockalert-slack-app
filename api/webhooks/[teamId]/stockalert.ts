@@ -86,11 +86,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       timestamp: body.timestamp
     });
     
-    // Verify signature with raw body using global secret
+    // Get webhook secret for this team (from API integration or fallback to global)
+    const webhookSecret = installation.stockalertWebhookSecret || process.env.STOCKALERT_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      console.error('No webhook secret configured for team', teamId);
+      return res.status(500).json({ error: 'Webhook not configured. Please run /stockalert apikey <your-api-key>' });
+    }
+    
+    // Verify signature with raw body
     const isValid = verifyWebhookSignature(
       rawBody,
       signature as string,
-      process.env.STOCKALERT_WEBHOOK_SECRET!
+      webhookSecret
     );
 
     if (!isValid) {

@@ -37,7 +37,8 @@ export async function handleSlashCommand(command: SlashCommand) {
               text: '• `/stockalert help` - Show this help message\n' +
                     '• `/stockalert test` - Send a test notification\n' +
                     '• `/stockalert status` - Show integration status\n' +
-                    '• `/stockalert channel #channel` - Set notification channel',
+                    '• `/stockalert channel #channel` - Set notification channel\n' +
+                    '• `/stockalert apikey <key>` - Set your StockAlert.pro API key',
             },
           },
           {
@@ -118,20 +119,132 @@ export async function handleSlashCommand(command: SlashCommand) {
         },
       ];
 
-      statusBlocks.push({
-        type: 'context',
-        elements: [
-          {
+      // Add API integration status
+      if (installation && installation.stockalertApiKey) {
+        statusBlocks.push({
+          type: 'section',
+          text: {
             type: 'mrkdwn',
-            text: 'ℹ️ Copy this webhook URL to your StockAlert.pro account settings',
+            text: `*StockAlert.pro API:*\n✅ Connected (Webhook ID: ${installation.stockalertWebhookId})`,
           },
-        ],
-      });
+        });
+        statusBlocks.push({
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: 'Your webhook is automatically configured and active',
+            },
+          ],
+        });
+      } else {
+        statusBlocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '*StockAlert.pro API:*\n❌ Not connected',
+          },
+        });
+        statusBlocks.push({
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: 'Run `/stockalert apikey <your-api-key>` to enable automatic webhook configuration',
+            },
+          ],
+        });
+      }
       
       return {
         response_type: 'ephemeral',
         blocks: statusBlocks,
       };
+
+    case 'apikey':
+      if (args.length < 2) {
+        return {
+          response_type: 'ephemeral',
+          text: '❌ Please provide your StockAlert.pro API key\n\nExample: `/stockalert apikey sk_your_api_key_here`\n\n' +
+                'You can generate an API key at https://stockalert.pro/dashboard/api-keys',
+        };
+      }
+      
+      const apiKey = args[1];
+      
+      // Validate API key format
+      if (!apiKey.startsWith('sk_')) {
+        return {
+          response_type: 'ephemeral',
+          text: '❌ Invalid API key format. StockAlert.pro API keys start with `sk_`',
+        };
+      }
+      
+      try {
+        // Import at runtime to avoid circular dependency
+        const { StockAlertAPI } = await import('../stockalert-api');
+        const { getWebhookUrl } = await import('../constants');
+        
+        // Test the API key by creating/updating the webhook
+        const api = new StockAlertAPI(apiKey);
+        const webhookUrl = getWebhookUrl(command.team_id);
+        
+        // Check if webhook already exists
+        let webhook = await api.findWebhookByUrl(webhookUrl);
+        
+        if (!webhook) {
+          // Create new webhook
+          webhook = await api.createWebhook({
+            name: `Slack - ${command.team_domain}`,
+            url: webhookUrl,
+            events: ['alert.triggered'],
+            enabled: true,
+          });
+        }
+        
+        // Save API key and webhook info to database
+        await installationRepo.update(command.team_id, {
+          stockalertApiKey: apiKey,
+          stockalertWebhookId: webhook.id,
+          stockalertWebhookSecret: webhook.secret,
+        });
+        
+        return {
+          response_type: 'ephemeral',
+          blocks: [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: '✅ *StockAlert.pro Integration Complete!*',
+              },
+            },
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `Webhook has been automatically configured:\n• URL: \`${webhookUrl}\`\n• Events: Alert notifications\n• Status: Active`,
+              },
+            },
+            {
+              type: 'context',
+              elements: [
+                {
+                  type: 'mrkdwn',
+                  text: 'Your alerts will now appear in this Slack workspace automatically.',
+                },
+              ],
+            },
+          ],
+        };
+      } catch (error: any) {
+        console.error('Failed to configure StockAlert webhook:', error);
+        
+        return {
+          response_type: 'ephemeral',
+          text: `❌ Failed to configure webhook: ${error.message}\n\nPlease check your API key and try again.`,
+        };
+      }
 
     case 'channel':
       if (args.length < 2) {

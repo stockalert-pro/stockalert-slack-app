@@ -13,6 +13,10 @@ export const installations = pgTable('slack_installations', {
   installerUserId: text('installer_user_id'),
   scope: text('scope'),
   tokenType: text('token_type').default('bot'),
+  // StockAlert.pro Integration
+  stockalertApiKey: text('stockalert_api_key'),
+  stockalertWebhookId: text('stockalert_webhook_id'),
+  stockalertWebhookSecret: text('stockalert_webhook_secret'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
