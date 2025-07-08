@@ -76,7 +76,20 @@ export class StockAlertAPI {
       throw new Error(`Failed to list webhooks: ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('Webhook API response:', data);
+    
+    // Handle different response formats - API might return {webhooks: [...]} or {data: [...]}
+    if (Array.isArray(data)) {
+      return data;
+    } else if (data.webhooks && Array.isArray(data.webhooks)) {
+      return data.webhooks;
+    } else if (data.data && Array.isArray(data.data)) {
+      return data.data;
+    } else {
+      console.error('Unexpected webhook list format:', data);
+      return [];
+    }
   }
 
   /**
