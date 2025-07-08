@@ -52,6 +52,43 @@ function createAlertPayload(type: string = 'price_above') {
           current_value: 205.5, // Stock price
           price: 205.5,
           pe_ratio: 32.5, // Actual P/E ratio
+          parameters: {
+            eps: 6.32,
+          },
+        },
+      };
+
+    case 'pe_ratio_below':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'BAC',
+          condition: 'pe_ratio_below',
+          threshold: 15.0,
+          current_value: 35.75,
+          price: 35.75,
+          pe_ratio: 12.8,
+          parameters: {
+            eps: 2.79,
+          },
+        },
+      };
+
+    case 'forward_pe_above':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'NFLX',
+          condition: 'forward_pe_above',
+          threshold: 35.0,
+          current_value: 485.25,
+          price: 485.25,
+          forward_pe: 38.2,
+          parameters: {
+            forward_eps: 12.7,
+          },
         },
       };
 
@@ -141,7 +178,164 @@ function createAlertPayload(type: string = 'price_above') {
           threshold: 0, // Not used for crossovers
           current_value: 205.5,
           price: 205.5,
-          parameters: { short_period: 50, long_period: 200 },
+          parameters: {
+            shortPeriod: 50,
+            longPeriod: 200,
+            ma_short: 204.75,
+            ma_long: 203.9,
+          },
+        },
+      };
+
+    case 'ma_crossover_death':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'ma_crossover_death',
+          threshold: 0,
+          current_value: 195.5,
+          price: 195.5,
+          parameters: {
+            shortPeriod: 50,
+            longPeriod: 200,
+            ma_short: 196.25,
+            ma_long: 197.1,
+          },
+        },
+      };
+
+    case 'ma_touch_above':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'ma_touch_above',
+          threshold: 200, // 200-day MA
+          current_value: 210.5,
+          price: 210.5,
+          parameters: {
+            ma_value: 200,
+          },
+        },
+      };
+
+    case 'ma_touch_below':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'ma_touch_below',
+          threshold: 50, // 50-day MA
+          current_value: 195.5,
+          price: 195.5,
+          parameters: {
+            ma_value: 200,
+          },
+        },
+      };
+
+    case 'volume_change':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'TSLA',
+          condition: 'volume_change',
+          threshold: 50, // 50% increase threshold
+          current_value: 75.5, // 75.5% increase
+          price: 242.5,
+          parameters: {
+            current_volume: 125000000,
+            average_volume: 71250000,
+          },
+        },
+      };
+
+    case 'reminder':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'reminder',
+          threshold: 30, // 30 days
+          current_value: 215.5,
+          price: 215.5,
+          parameters: {
+            price_change_percent: 7.75,
+          },
+        },
+      };
+
+    case 'daily_reminder':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          condition: 'daily_reminder',
+          threshold: 1,
+          current_value: 220.5,
+          price: 220.5,
+          parameters: {
+            previous_close: 218.75,
+            week_52_high: 237.8,
+            week_52_low: 164.3,
+            volume: 28750000,
+          },
+        },
+      };
+
+    case 'earnings_announcement':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'MSFT',
+          condition: 'earnings_announcement',
+          threshold: 3, // 3 days before
+          current_value: 378.85,
+          price: 378.85,
+          parameters: {
+            earnings_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            reporting_time: 'After Market Close',
+            estimated_eps: 2.93,
+          },
+        },
+      };
+
+    case 'dividend_ex_date':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'JNJ',
+          condition: 'dividend_ex_date',
+          threshold: 2, // 2 days before
+          current_value: 155.25,
+          price: 155.25,
+          parameters: {
+            ex_dividend_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+            dividend_amount: 1.19,
+            dividend_yield: 3.06,
+          },
+        },
+      };
+
+    case 'dividend_payment':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          symbol: 'KO',
+          condition: 'dividend_payment',
+          threshold: 0,
+          current_value: 62.45,
+          price: 62.45,
+          parameters: {
+            payment_date: new Date().toISOString(),
+            dividend_amount: 0.46,
+            shares: 500,
+          },
         },
       };
 
@@ -160,8 +354,39 @@ function createAlertPayload(type: string = 'price_above') {
 }
 
 // Get alert type from command line or default
-const alertType = process.argv[2] || 'price_change_up';
+const alertType = process.argv[2] || 'price_above';
 const payload = createAlertPayload(alertType);
+
+// Validate alert type
+const validAlertTypes = [
+  'price_above',
+  'price_below',
+  'price_change_up',
+  'price_change_down',
+  'new_high',
+  'new_low',
+  'ma_crossover_golden',
+  'ma_crossover_death',
+  'ma_touch_above',
+  'ma_touch_below',
+  'rsi_limit',
+  'volume_change',
+  'pe_ratio_below',
+  'pe_ratio_above',
+  'forward_pe_below',
+  'forward_pe_above',
+  'earnings_announcement',
+  'dividend_ex_date',
+  'dividend_payment',
+  'reminder',
+  'daily_reminder',
+];
+
+if (!validAlertTypes.includes(alertType) && alertType !== '--help' && alertType !== '-h') {
+  console.error(`\n❌ Invalid alert type: ${alertType}`);
+  console.log('\nUse --help to see available alert types');
+  process.exit(1);
+}
 
 // Send webhook
 async function sendTestWebhook(): Promise<void> {
@@ -245,23 +470,47 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log(`
 Usage: npm run test:webhook [alert-type]
 
-Available alert types:
+Available alert types (21 total):
+
+Price Alerts:
   - price_above         Price above threshold
   - price_below         Price below threshold
-  - price_change_up     Price increased by percentage (GOOGL example)
-  - price_change_down   Price decreased by percentage (AMZN example)
-  - forward_pe_below    Forward P/E below threshold (tests ratio formatting)
-  - pe_ratio_above      P/E ratio above threshold
-  - rsi_limit          RSI limit reached
+  - price_change_up     Price increased by percentage (GOOGL)
+  - price_change_down   Price decreased by percentage (AMZN)
+  
+52-Week Alerts:
+  - new_high           52-week high (NVDA)
+  - new_low            52-week low (META)
+  
+Moving Average Alerts:
   - ma_crossover_golden Golden cross signal
-  - new_high           52-week high (NVDA example)
-  - new_low            52-week low (META example)
-  - volume_change      Volume spike
+  - ma_crossover_death  Death cross signal
+  - ma_touch_above     Price broke above MA
+  - ma_touch_below     Price broke below MA
+  
+Technical Indicators:
+  - rsi_limit          RSI limit reached
+  - volume_change      Volume spike (TSLA)
+  
+Fundamental Alerts:
+  - pe_ratio_below     P/E below threshold
+  - pe_ratio_above     P/E above threshold
+  - forward_pe_below   Forward P/E below threshold
+  - forward_pe_above   Forward P/E above threshold
+  
+Corporate Events:
+  - earnings_announcement  Earnings coming up (MSFT)
+  - dividend_ex_date      Ex-dividend date (JNJ)
+  - dividend_payment      Dividend payment (KO)
+  
+Reminders:
+  - reminder           Periodic reminder
+  - daily_reminder     Daily update
 
-Example:
-  npm run test:webhook forward_pe_below
+Examples:
   npm run test:webhook price_change_up
-  npm run test:webhook new_high
+  npm run test:webhook ma_crossover_golden
+  npm run test:webhook earnings_announcement
 `);
   process.exit(0);
 }
