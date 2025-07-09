@@ -256,7 +256,7 @@ describe('handleSlashCommand', () => {
         name: 'Slack - test-team',
         url: 'https://example.com/webhooks/T123456/stockalert',
         events: ['alert.triggered'],
-        enabled: true,
+        is_active: true,
       });
 
       expect(installationRepo.update).toHaveBeenCalledWith('T123456', {

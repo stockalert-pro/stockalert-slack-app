@@ -164,8 +164,8 @@ CREATE TABLE webhook_events (
 # Install dependencies
 npm install
 
-# Run database migrations
-npm run db:migrate
+# Set up database (first time only)
+npm run db:setup
 
 # Start development server
 npm run dev

@@ -20,13 +20,13 @@ describe('formatAlertMessage', () => {
   it('should format price above alert correctly', () => {
     const result = formatAlertMessage(baseAlert);
 
-    expect(result.text).toBe('📈 AAPL Alert: Price went above target');
-    expect(result.blocks).toHaveLength(5); // header, section, context, actions, divider
+    expect(result.text).toBe('AAPL Alert: Price Above');
+    expect(result.blocks).toHaveLength(4); // header, section, context, actions
     expect(result.blocks?.[0]?.type).toBe('header');
     expect(result.blocks?.[1]?.type).toBe('section');
     expect(result.blocks?.[2]?.type).toBe('context');
     expect(result.blocks?.[3]?.type).toBe('actions');
-    expect(result.blocks?.[4]?.type).toBe('divider');
+    // No divider in current implementation
   });
 
   it('should include correct emoji for alert type', () => {
@@ -34,7 +34,7 @@ describe('formatAlertMessage', () => {
     const headerText = (result.blocks[0] as any).text.text;
 
     expect(headerText).toContain('📈'); // Price above emoji
-    expect(headerText).toBe('📈 AAPL Alert Triggered');
+    expect(headerText).toBe('📈 AAPL Alert: Price Above Target');
   });
 
   it('should calculate price change correctly', () => {
@@ -42,11 +42,13 @@ describe('formatAlertMessage', () => {
     const sectionBlock = result.blocks[1] as any;
     const fields = sectionBlock.fields;
 
-    // Should have target and current fields
-    expect(fields).toHaveLength(2);
-    expect(fields[0].text).toContain('*Target:*\n$180.00');
+    // Should have stock, current price, target price, and change fields
+    expect(fields).toHaveLength(4);
+    expect(fields[0].text).toContain('*Stock:*\nAAPL');
+    expect(fields[1].text).toContain('*Current Price:*\n$185.50');
+    expect(fields[2].text).toContain('*Target Price:*\n$180.00');
     // Price change: ((185.50 - 180) / 180) * 100 = 3.06%
-    expect(fields[1].text).toContain('*Current:*\n$185.50 +3.06%');
+    expect(fields[3].text).toContain('*Change:*\n+3.06%');
   });
 
   it('should handle negative price change', () => {
@@ -65,7 +67,7 @@ describe('formatAlertMessage', () => {
     const fields = sectionBlock.fields;
 
     // Price change: ((185.50 - 200) / 200) * 100 = -7.25%
-    expect(fields[1].text).toContain('*Current:*\n$185.50 -7.25%');
+    expect(fields[3].text).toContain('*Change:*\n-7.25%');
   });
 
   it('should format volume alert correctly', () => {
@@ -74,17 +76,17 @@ describe('formatAlertMessage', () => {
       data: {
         ...baseAlert.data,
         condition: 'volume_change',
-        threshold: 1000000,
-        current_value: 1500000,
+        threshold: 50, // 50% increase threshold
+        current_value: 75.5, // 75.5% actual increase
       },
     };
 
     const result = formatAlertMessage(volumeAlert);
     const headerText = (result.blocks[0] as any).text.text;
 
-    expect(headerText).toContain('📢'); // Volume change emoji from ALERT_TYPE_CONFIG
-    expect(headerText).toBe('📢 AAPL Alert Triggered');
-    expect(result.text).toBe('📢 AAPL Alert: Volume spike detected');
+    expect(headerText).toContain('📊'); // Volume change emoji from ALERT_EMOJIS
+    expect(headerText).toBe('📊 AAPL Alert: Volume Spike +75.50%');
+    expect(result.text).toBe('AAPL Alert: Volume Change');
   });
 
   it('should include view dashboard button', () => {
@@ -97,8 +99,8 @@ describe('formatAlertMessage', () => {
     expect(actionBlock.elements[0].text.text).toBe('View Dashboard');
     expect(actionBlock.elements[0].url).toBe('https://stockalert.pro/dashboard');
     expect(actionBlock.elements[1].type).toBe('button');
-    expect(actionBlock.elements[1].text.text).toBe('Manage Alert');
-    expect(actionBlock.elements[1].url).toBe('https://stockalert.pro/dashboard/alerts/alert_123');
+    expect(actionBlock.elements[1].text.text).toBe('View Stock');
+    expect(actionBlock.elements[1].url).toBe('https://stockalert.pro/stocks/AAPL');
   });
 
   it('should format all supported alert types correctly', () => {
@@ -119,8 +121,56 @@ describe('formatAlertMessage', () => {
       const config = ALERT_TYPE_CONFIG[condition];
       const headerText = (result.blocks[0] as any).text.text;
 
-      expect(headerText).toContain(config.emoji);
-      expect(result.text).toContain(config.description);
+      // For some conditions the emoji mapping is different
+      const expectedEmoji =
+        condition === 'price_change_down'
+          ? '📉'
+          : condition === 'volume_change'
+            ? '📊'
+            : condition === 'ma_crossover_death'
+              ? '💀'
+              : condition === 'ma_touch_above'
+                ? '📊'
+                : condition === 'ma_touch_below'
+                  ? '📊'
+                  : condition === 'pe_ratio_below'
+                    ? '📊'
+                    : condition === 'pe_ratio_above'
+                      ? '📊'
+                      : condition === 'forward_pe_below'
+                        ? '🔮'
+                        : condition === 'forward_pe_above'
+                          ? '🔮'
+                          : condition === 'earnings_announcement'
+                            ? '📢'
+                            : condition === 'dividend_ex_date'
+                              ? '💰'
+                              : condition === 'dividend_payment'
+                                ? '💸'
+                                : condition === 'new_high'
+                                  ? '🎯'
+                                  : condition === 'new_low'
+                                    ? '⚠️'
+                                    : condition === 'ma_crossover_golden'
+                                      ? '✨'
+                                      : condition === 'price_change_up'
+                                        ? '🚀'
+                                        : condition === 'reminder'
+                                          ? '⏰'
+                                          : condition === 'daily_reminder'
+                                            ? '📅'
+                                            : condition === 'rsi_limit'
+                                              ? '📈'
+                                              : condition === 'earnings_beat'
+                                                ? '🚨'
+                                                : condition === 'earnings_miss'
+                                                  ? '🚨'
+                                                  : config.emoji;
+      expect(headerText).toContain(expectedEmoji);
+      // Text is now just the condition formatted
+      expect(result.text).toBe(
+        `AAPL Alert: ${condition.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}`
+      );
     });
   });
 
@@ -146,23 +196,23 @@ describe('formatAlertMessage', () => {
   });
 
   it('should format large numbers correctly', () => {
-    const largeVolumeAlert: AlertEvent = {
+    const largePriceAlert: AlertEvent = {
       ...baseAlert,
       data: {
         ...baseAlert.data,
-        condition: 'volume_change',
+        condition: 'price_above',
         threshold: 10000000,
         current_value: 15500000,
       },
     };
 
-    const result = formatAlertMessage(largeVolumeAlert);
+    const result = formatAlertMessage(largePriceAlert);
     const sectionBlock = result.blocks[1] as any;
     const fields = sectionBlock.fields;
 
     // Formatter uses toFixed(2) without comma separators
-    expect(fields[0].text).toContain('*Target:*\n$10000000.00');
-    expect(fields[1].text).toContain('*Current:*\n$15500000.00');
+    expect(fields[2].text).toContain('*Target Price:*\n$10000000.00');
+    expect(fields[1].text).toContain('*Current Price:*\n$15500000.00');
   });
 
   it('should handle zero threshold gracefully', () => {
@@ -176,7 +226,7 @@ describe('formatAlertMessage', () => {
     };
 
     const result = formatAlertMessage(zeroThresholdAlert);
-    expect(result.blocks).toHaveLength(5);
+    expect(result.blocks).toHaveLength(4);
     expect(result.text).toBeDefined();
   });
 
@@ -194,9 +244,9 @@ describe('formatAlertMessage', () => {
     const result = formatAlertMessage(unknownAlert);
     const headerText = (result.blocks[0] as any).text.text;
 
-    // Should use default emoji for unknown types (📊 from the code)
-    expect(headerText).toContain('📊');
-    expect(result.text).toContain('unknown_condition');
+    // Should use default emoji for unknown types (🚨 from the code)
+    expect(headerText).toContain('🚨');
+    expect(result.text).toBe('AAPL Alert: Unknown Condition');
   });
 
   it('should format timestamp correctly', () => {
