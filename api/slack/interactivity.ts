@@ -136,22 +136,45 @@ export default async function handler(
           payload.view?.state?.values?.channel_select?.selected_channel?.selected_channel;
 
         if (channelId) {
-          await channelRepo.create({
-            teamId: payload.team.id,
-            channelId: channelId,
-            channelName: '',
-            isDefault: true,
-          });
-          await channelRepo.setDefaultChannel(payload.team.id, channelId);
+          try {
+            // Create or update channel
+            await channelRepo.create({
+              teamId: payload.team.id,
+              channelId: channelId,
+              channelName: '',
+              isDefault: true,
+            });
+            await channelRepo.setDefaultChannel(payload.team.id, channelId);
 
-          // Send confirmation
-          await client.chat.postMessage({
-            channel: payload.user.id,
-            text: `✅ Great! I'll send alerts to <#${channelId}>`,
-          });
+            // Send confirmation
+            await client.chat.postMessage({
+              channel: payload.user.id,
+              text: `✅ Great! I'll send alerts to <#${channelId}>`,
+            });
 
-          // Continue onboarding
-          await sendWelcomeMessage(client, payload.team.id, payload.user.id);
+            // Continue onboarding
+            await sendWelcomeMessage(client, payload.team.id, payload.user.id);
+
+            // Close the modal successfully
+            return res.status(200).json({});
+          } catch (error) {
+            console.error('Error saving channel:', error);
+            // Return error to Slack
+            return res.status(200).json({
+              response_action: 'errors',
+              errors: {
+                channel_select: 'Failed to save channel. Please try again.',
+              },
+            });
+          }
+        } else {
+          // No channel selected
+          return res.status(200).json({
+            response_action: 'errors',
+            errors: {
+              channel_select: 'Please select a channel',
+            },
+          });
         }
       } else if (callbackId === 'api_key_input') {
         // Save API key and create webhook
