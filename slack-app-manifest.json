@@ -1,0 +1,57 @@
+{
+  "display_information": {
+    "name": "StockAlert.pro",
+    "description": "Get real-time stock market alerts directly in your Slack workspace",
+    "long_description": "StockAlert.pro for Slack brings professional-grade stock market monitoring to your team's workspace. Receive instant notifications when your price targets, technical indicators, or fundamental metrics are triggered.\n\n**Features:**\n• 📊 21 Alert Types - Price targets, moving averages, RSI, volume spikes, P/E ratios, dividends, earnings\n• ⚡ Real-time Updates - Get notified instantly during market hours\n• 🎨 Rich Formatting - Beautiful messages with price changes and action buttons\n• 🔒 Secure - Enterprise-grade security with encrypted webhooks\n• 👥 Team Collaboration - Share market insights with your entire team\n\n**Alert Types Include:**\n• Price above/below targets\n• Percentage changes (daily gains/losses)\n• 52-week highs and lows\n• Moving average crossovers and touches\n• RSI overbought/oversold levels\n• Volume spikes\n• P/E ratio thresholds\n• Earnings announcements\n• Dividend dates and payments\n• Daily/periodic reminders\n\n**Perfect for:**\n• Investment teams tracking portfolios\n• Trading desks monitoring key levels\n• Financial advisors staying informed\n• Anyone interested in stock market movements\n\nGet started in minutes with our simple setup process!",
+    "background_color": "#1a1a1a",
+    "primary_color": "#2ECC40"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": false,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "StockAlert.pro",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/stockalert",
+        "description": "Manage StockAlert.pro integration",
+        "usage_hint": "[help|test|status|channel|apikey|disconnect]",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "redirect_urls": ["https://slack.stockalert.pro/api/slack/oauth"],
+    "scopes": {
+      "bot": [
+        "channels:read",
+        "chat:write",
+        "chat:write.public",
+        "commands",
+        "groups:read",
+        "im:read",
+        "mpim:read",
+        "team:read",
+        "users:read"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://slack.stockalert.pro/api/slack/events",
+      "bot_events": []
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://slack.stockalert.pro/api/slack/interactivity"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
