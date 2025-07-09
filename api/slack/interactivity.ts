@@ -156,7 +156,7 @@ export default async function handler(
             await sendWelcomeMessage(client, payload.team.id, payload.user.id);
 
             // Close the modal successfully
-            return res.status(200).json({});
+            return res.status(200).json({ response_action: 'clear' });
           } catch (error) {
             console.error('Error saving channel:', error);
             // Return error to Slack
@@ -223,8 +223,8 @@ export default async function handler(
             // Continue onboarding
             await sendWelcomeMessage(client, payload.team.id, payload.user.id);
 
-            // Return empty response to close the modal
-            return res.status(200).json({});
+            // Return clear response to close the modal
+            return res.status(200).json({ response_action: 'clear' });
           } catch (error) {
             console.error('API key validation error:', error);
             return res.status(200).json({
