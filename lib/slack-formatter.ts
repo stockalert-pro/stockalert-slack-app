@@ -137,9 +137,9 @@ function getAlertHeader(event: AlertEvent): string {
     case 'forward_pe_above':
       return `${emoji} ${symbol} Alert: Forward P/E Above ${threshold ?? 0}`;
     case 'earnings_announcement':
-      return `${emoji} ${symbol} Alert: Earnings in ${threshold ?? 0} Days`;
+      return `${emoji} ${symbol} Alert: Earnings in ${event.data.current_value} Days`;
     case 'dividend_ex_date':
-      return `${emoji} ${symbol} Alert: Ex-Dividend in ${threshold ?? 0} Days`;
+      return `${emoji} ${symbol} Alert: Ex-Dividend in ${event.data.current_value} Days`;
     case 'dividend_payment':
       return `${emoji} ${symbol} Alert: Dividend Payment Today`;
     default:
@@ -507,7 +507,7 @@ function formatVolumeChangeAlert(event: AlertEvent): KnownBlock[] {
  * Format earnings announcement alerts
  */
 function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
-  const { symbol, company_name, current_value, threshold, price, parameters } = event.data;
+  const { symbol, company_name, current_value, price, parameters } = event.data;
   const currentPrice = price ?? (parameters?.price as number) ?? current_value;
   const earningsDate = parameters?.earnings_date as string;
   const reportingTime = (parameters?.reporting_time as string) || 'After Market Close';
@@ -547,7 +547,7 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
 
   fields.push({
     type: 'mrkdwn',
-    text: `*Days Until:*\n${threshold ?? 0} days`,
+    text: `*Days Until:*\n${current_value} days`,
   });
 
   return [
@@ -571,7 +571,7 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
  * Format dividend alerts
  */
 function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[] {
-  const { symbol, company_name, current_value, threshold, price, parameters } = event.data;
+  const { symbol, company_name, current_value, price, parameters } = event.data;
   const currentPrice = price ?? (parameters?.price as number) ?? current_value;
   const dividendAmount =
     (parameters?.dividend_amount as number) || (parameters?.dividend as number) || 0;
@@ -674,7 +674,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
 
     fields.push({
       type: 'mrkdwn' as const,
-      text: `*Days Until:*\n${threshold ?? 0} days`,
+      text: `*Days Until:*\n${current_value} days`,
     });
 
     return [
