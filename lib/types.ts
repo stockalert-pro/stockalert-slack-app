@@ -11,7 +11,7 @@ export const AlertEventSchema = z.object({
     alert_id: z.string(),
     symbol: z.string(),
     condition: z.string(),
-    threshold: z.number(),
+    threshold: z.number().nullable(),
     current_value: z.number(),
     triggered_at: z.string(),
     reason: z.string().optional(),

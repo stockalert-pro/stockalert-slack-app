@@ -105,9 +105,9 @@ function getAlertHeader(event: AlertEvent): string {
     case 'price_below':
       return `${emoji} ${symbol} Alert: Price Below Target`;
     case 'price_change_up':
-      return `${emoji} ${symbol} Alert: Price Up ${threshold}%`;
+      return `${emoji} ${symbol} Alert: Price Up ${threshold ?? 0}%`;
     case 'price_change_down':
-      return `${emoji} ${symbol} Alert: Price Down ${Math.abs(threshold)}%`;
+      return `${emoji} ${symbol} Alert: Price Down ${Math.abs(threshold ?? 0)}%`;
     case 'new_high':
       return `${emoji} ${symbol} Alert: New 52-Week High!`;
     case 'new_low':
@@ -117,29 +117,29 @@ function getAlertHeader(event: AlertEvent): string {
     case 'ma_crossover_death':
       return `${emoji} ${symbol} Alert: Death Cross (${event.data.parameters?.shortPeriod || 50}d/${event.data.parameters?.longPeriod || 200}d MA)`;
     case 'ma_touch_above':
-      return `${emoji} ${symbol} Alert: Price Above ${threshold}-day MA`;
+      return `${emoji} ${symbol} Alert: Price Above ${threshold ?? 0}-day MA`;
     case 'ma_touch_below':
-      return `${emoji} ${symbol} Alert: Price Below ${threshold}-day MA`;
+      return `${emoji} ${symbol} Alert: Price Below ${threshold ?? 0}-day MA`;
     case 'rsi_limit':
-      return `${emoji} ${symbol} Alert: RSI Crossed ${threshold}`;
+      return `${emoji} ${symbol} Alert: RSI Crossed ${threshold ?? 0}`;
     case 'reminder':
-      return `${emoji} ${symbol} Reminder: ${threshold}-Day Check`;
+      return `${emoji} ${symbol} Reminder: ${threshold ?? 0}-Day Check`;
     case 'daily_reminder':
       return `${emoji} ${symbol} Daily Update`;
     case 'volume_change':
       return `${emoji} ${symbol} Alert: Volume Spike ${formatPercentage(event.data.current_value)}`;
     case 'pe_ratio_below':
-      return `${emoji} ${symbol} Alert: P/E Below ${threshold}`;
+      return `${emoji} ${symbol} Alert: P/E Below ${threshold ?? 0}`;
     case 'pe_ratio_above':
-      return `${emoji} ${symbol} Alert: P/E Above ${threshold}`;
+      return `${emoji} ${symbol} Alert: P/E Above ${threshold ?? 0}`;
     case 'forward_pe_below':
-      return `${emoji} ${symbol} Alert: Forward P/E Below ${threshold}`;
+      return `${emoji} ${symbol} Alert: Forward P/E Below ${threshold ?? 0}`;
     case 'forward_pe_above':
-      return `${emoji} ${symbol} Alert: Forward P/E Above ${threshold}`;
+      return `${emoji} ${symbol} Alert: Forward P/E Above ${threshold ?? 0}`;
     case 'earnings_announcement':
-      return `${emoji} ${symbol} Alert: Earnings in ${threshold} Days`;
+      return `${emoji} ${symbol} Alert: Earnings in ${threshold ?? 0} Days`;
     case 'dividend_ex_date':
-      return `${emoji} ${symbol} Alert: Ex-Dividend in ${threshold} Days`;
+      return `${emoji} ${symbol} Alert: Ex-Dividend in ${threshold ?? 0} Days`;
     case 'dividend_payment':
       return `${emoji} ${symbol} Alert: Dividend Payment Today`;
     default:
@@ -153,7 +153,7 @@ function getAlertHeader(event: AlertEvent): string {
 function formatPriceAlert(event: AlertEvent): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, price } = event.data;
   const priceValue = price ?? current_value;
-  const changePercent = ((priceValue - threshold) / threshold) * 100;
+  const changePercent = threshold ? ((priceValue - threshold) / threshold) * 100 : 0;
 
   return [
     {
@@ -169,7 +169,7 @@ function formatPriceAlert(event: AlertEvent): KnownBlock[] {
         },
         {
           type: 'mrkdwn',
-          text: `*Target Price:*\n${formatCurrency(threshold)}`,
+          text: `*Target Price:*\n${threshold ? formatCurrency(threshold) : 'N/A'}`,
         },
         {
           type: 'mrkdwn',
@@ -215,7 +215,7 @@ function formatPercentageChangeAlert(event: AlertEvent, isUp: boolean): KnownBlo
         },
         {
           type: 'mrkdwn',
-          text: `*Target Change:*\n${formatPercentage(Math.abs(threshold))}`,
+          text: `*Target Change:*\n${threshold ? formatPercentage(Math.abs(threshold)) : 'N/A'}`,
         },
       ],
     },
@@ -413,7 +413,7 @@ function formatPERatioAlert(event: AlertEvent, isForward: boolean): KnownBlock[]
     },
     {
       type: 'mrkdwn' as const,
-      text: `*Target ${isForward ? 'Forward P/E' : 'P/E'}:*\n${threshold.toFixed(2)}x`,
+      text: `*Target ${isForward ? 'Forward P/E' : 'P/E'}:*\n${threshold ? `${threshold.toFixed(2)}x` : 'N/A'}`,
     },
   ];
 
@@ -484,7 +484,7 @@ function formatVolumeChangeAlert(event: AlertEvent): KnownBlock[] {
     },
     {
       type: 'mrkdwn' as const,
-      text: `*Threshold:*\n${formatPercentage(threshold)}`,
+      text: `*Threshold:*\n${threshold ? formatPercentage(threshold) : 'N/A'}`,
     }
   );
 
@@ -547,7 +547,7 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
 
   fields.push({
     type: 'mrkdwn',
-    text: `*Days Until:*\n${threshold} days`,
+    text: `*Days Until:*\n${threshold ?? 0} days`,
   });
 
   return [
@@ -674,7 +674,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
 
     fields.push({
       type: 'mrkdwn' as const,
-      text: `*Days Until:*\n${threshold} days`,
+      text: `*Days Until:*\n${threshold ?? 0} days`,
     });
 
     return [
@@ -768,7 +768,7 @@ function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] 
       },
       {
         type: 'mrkdwn' as const,
-        text: `*Days Since Alert:*\n${threshold} days`,
+        text: `*Days Since Alert:*\n${threshold ?? 0} days`,
       },
     ];
 
@@ -884,7 +884,7 @@ export function formatSlackAlert(event: AlertEvent): {
   // Add context with timestamp
   const contextText =
     condition === 'reminder'
-      ? `Reminder set ${event.data.threshold} days ago | Alert ID: ${alert_id}`
+      ? `Reminder set ${event.data.threshold ?? 0} days ago | Alert ID: ${alert_id}`
       : condition === 'daily_reminder'
         ? `Daily update at market open | Alert ID: ${alert_id}`
         : `Triggered at ${formatTimestamp(triggered_at || event.timestamp)} | Alert ID: ${alert_id}`;
@@ -939,7 +939,7 @@ function formatMATouchAlert(event: AlertEvent): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, condition, parameters, price } =
     event.data;
   const currentPrice = price ?? current_value;
-  const maValue = (parameters?.ma_value as number) || threshold;
+  const maValue = (parameters?.ma_value as number) || threshold || 0;
   const isAbove = condition === 'ma_touch_above';
 
   return [
@@ -956,7 +956,7 @@ function formatMATouchAlert(event: AlertEvent): KnownBlock[] {
         },
         {
           type: 'mrkdwn',
-          text: `*${threshold}-day MA:*\n${formatCurrency(maValue)}`,
+          text: `*${threshold ?? 0}-day MA:*\n${formatCurrency(maValue)}`,
         },
         {
           type: 'mrkdwn',

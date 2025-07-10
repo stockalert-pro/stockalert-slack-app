@@ -13,7 +13,7 @@ export interface FormattedAlertData {
   condition: string;
 
   // Values
-  threshold: number;
+  threshold: number | null;
   currentValue: number;
   displayValue?: number; // The actual metric value (e.g., P/E ratio)
   stockPrice?: number;
@@ -84,7 +84,7 @@ export function formatWebhookData(event: AlertEvent): FormattedAlertData {
  */
 function formatAlertValues(
   condition: string,
-  threshold: number,
+  threshold: number | null,
   currentValue: number,
   displayValue?: number
 ): {
@@ -124,16 +124,16 @@ function formatAlertValues(
 
   if (isFundamentalAlert) {
     // P/E and Forward P/E ratios
-    thresholdFormatted = threshold.toFixed(2);
+    thresholdFormatted = threshold ? threshold.toFixed(2) : 'N/A';
     const ratioValue = displayValue ?? currentValue;
     currentValueFormatted = ratioValue.toFixed(2);
   } else if (isRSIAlert) {
     // RSI values
-    thresholdFormatted = threshold.toFixed(0);
+    thresholdFormatted = threshold ? threshold.toFixed(0) : 'N/A';
     currentValueFormatted = currentValue.toFixed(0);
   } else if (isPercentageAlert) {
     // For percentage alerts, the values are already percentages
-    thresholdFormatted = `${threshold.toFixed(1)}%`;
+    thresholdFormatted = threshold ? `${threshold.toFixed(1)}%` : 'N/A';
     currentValueFormatted = `${Math.abs(currentValue).toFixed(1)}%`;
   } else if (is52WeekAlert) {
     // 52-week highs/lows don't have a threshold
@@ -146,7 +146,7 @@ function formatAlertValues(
       currentValueFormatted = `$${currentValue.toFixed(2)}`;
     } else {
       // MA touch alerts
-      thresholdFormatted = `$${threshold.toFixed(2)}`;
+      thresholdFormatted = threshold ? `$${threshold.toFixed(2)}` : 'N/A';
       currentValueFormatted = `$${currentValue.toFixed(2)}`;
     }
   } else if (isEventAlert) {
@@ -155,11 +155,11 @@ function formatAlertValues(
     currentValueFormatted = 'Triggered';
   } else {
     // Price alerts
-    thresholdFormatted = `$${threshold.toFixed(2)}`;
+    thresholdFormatted = threshold ? `$${threshold.toFixed(2)}` : 'N/A';
     currentValueFormatted = `$${currentValue.toFixed(2)}`;
 
     // Calculate percentage change for price alerts
-    if (threshold !== 0) {
+    if (threshold && threshold !== 0) {
       const changePercent = (((currentValue - threshold) / threshold) * 100).toFixed(1);
       changeText = changePercent.startsWith('-') ? `(${changePercent}%)` : `(+${changePercent}%)`;
     }
