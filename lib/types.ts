@@ -23,36 +23,62 @@ export const AlertEventSchema = z.object({
     pe_ratio: z.number().optional(),
     actual_value: z.number().optional(),
     company_name: z.string().optional(),
-    // Volume-related fields
-    volume: z.number().optional(),
-    average_volume: z.number().optional(),
+
     // Price change fields
+    price_change_percentage: z.number().optional(),
     initial_price: z.number().optional(),
     reference_price: z.number().optional(),
     price_change_percent: z.number().optional(),
-    // Dividend fields
-    dividend_amount: z.number().optional(),
-    dividend_yield: z.number().optional(),
-    ex_dividend_date: z.string().optional(),
-    payment_date: z.string().optional(),
-    // Technical indicators
-    rsi_value: z.number().optional(),
-    ma_value: z.number().optional(),
-    ma_short: z.number().optional(),
-    ma_long: z.number().optional(),
-    // Fundamental data
-    eps: z.number().optional(),
-    forward_eps: z.number().optional(),
+
+    // Volume-related fields
+    volume: z.number().optional(),
+    average_volume: z.number().optional(),
+    volume_change_percentage: z.number().optional(),
+
     // 52-week data
     week_52_high: z.number().optional(),
     week_52_low: z.number().optional(),
     previous_high: z.number().optional(),
     previous_low: z.number().optional(),
-    // Time-based alerts
-    previous_close: z.number().optional(),
+
+    // Technical indicators - Moving Averages
+    ma: z.number().optional(),
+    ma_period: z.number().optional(),
+    ma50: z.number().optional(),
+    ma200: z.number().optional(),
+    ma_value: z.number().optional(),
+    ma_short: z.number().optional(),
+    ma_long: z.number().optional(),
+
+    // Technical indicators - RSI
+    rsi: z.number().optional(),
+    rsi_value: z.number().optional(),
+    comparison: z.enum(['above', 'below']).optional(),
+
+    // Fundamental data
+    eps: z.number().optional(),
+    forward_eps: z.number().optional(),
+
+    // Dividend fields
+    dividend_amount: z.number().optional(),
+    dividend_yield: z.number().optional(),
+    dividend_ex_date: z.string().optional(),
+    dividend_payment_date: z.string().optional(),
+    ex_dividend_date: z.string().optional(),
+    payment_date: z.string().optional(),
+    days_until_ex_date: z.number().optional(),
+    days_until_payment: z.number().optional(),
+
+    // Earnings fields
     earnings_date: z.string().optional(),
+    days_until_earnings: z.number().optional(),
     reporting_time: z.string().optional(),
     estimated_eps: z.number().optional(),
+
+    // Time-based alerts
+    reminder_date: z.string().optional(),
+    reminder_time: z.string().optional(),
+    previous_close: z.number().optional(),
   }),
 });
 
