@@ -752,10 +752,10 @@ function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] 
   const currentPrice = price ?? 0;
 
   if (isDaily) {
-    const prevClose = previous_close ?? currentPrice;
-    const week52High = week_52_high;
-    const week52Low = week_52_low;
-    const vol = volume;
+    const prevClose = previous_close ?? (parameters?.previous_close as number) ?? currentPrice;
+    const week52High = week_52_high ?? (parameters?.week_52_high as number);
+    const week52Low = week_52_low ?? (parameters?.week_52_low as number);
+    const vol = volume ?? (parameters?.volume as number);
     const changePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
 
     const fields = [
