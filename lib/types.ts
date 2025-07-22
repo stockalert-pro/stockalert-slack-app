@@ -31,15 +31,15 @@ export const AlertEventSchema = z.object({
     price_change_percent: z.number().optional(),
 
     // Volume-related fields
-    volume: z.number().optional(),
-    average_volume: z.number().optional(),
-    volume_change_percentage: z.number().optional(),
+    volume: z.number().nullable().optional(),
+    average_volume: z.number().nullable().optional(),
+    volume_change_percentage: z.number().nullable().optional(),
 
     // 52-week data
-    week_52_high: z.number().optional(),
-    week_52_low: z.number().optional(),
-    previous_high: z.number().optional(),
-    previous_low: z.number().optional(),
+    week_52_high: z.number().nullable().optional(),
+    week_52_low: z.number().nullable().optional(),
+    previous_high: z.number().nullable().optional(),
+    previous_low: z.number().nullable().optional(),
 
     // Technical indicators - Moving Averages
     ma: z.number().optional(),
@@ -78,7 +78,7 @@ export const AlertEventSchema = z.object({
     // Time-based alerts
     reminder_date: z.string().optional(),
     reminder_time: z.string().optional(),
-    previous_close: z.number().optional(),
+    previous_close: z.number().nullable().optional(),
   }),
 });
 
