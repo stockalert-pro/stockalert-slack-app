@@ -35,7 +35,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@slack/web-api": "^7.0.0",
+    "@slack/web-api": "^7.10.0",
     "@vercel/kv": "^3.0.0",
     "@vercel/node": "^5.3.4",
     "@vercel/postgres": "^0.10.0",
