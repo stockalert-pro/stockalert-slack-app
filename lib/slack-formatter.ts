@@ -182,7 +182,7 @@ function getAlertHeader(data: NormalizedAlertData): string {
     case 'earnings_announcement':
       return `${emoji} ${symbol} Alert: Earnings in ${data.days_until_earnings ?? threshold ?? 0} Days`;
     case 'dividend_ex_date':
-      return `${emoji} ${symbol} Alert: Ex-Dividend in ${data.days_until_ex_date ?? 0} Days`;
+      return `${emoji} ${symbol} Alert: Ex-Dividend in ${data.days_until_ex_date ?? threshold ?? 0} Days`;
     case 'dividend_payment':
       return `${emoji} ${symbol} Alert: Dividend Payment in ${data.days_until_payment ?? 0} Days`;
     default:
@@ -664,6 +664,7 @@ function formatDividendAlert(
     days_until_ex_date,
     days_until_payment,
     parameters,
+    threshold,
   } = data;
   const currentPrice = price ?? 0;
   const dividendAmt = dividend_amount ?? (parameters?.dividend_amount as number) ?? 0;
@@ -764,10 +765,12 @@ function formatDividendAlert(
       });
     }
 
-    const daysUntil = isPayment ? days_until_payment : days_until_ex_date;
+    const daysUntil = isPayment
+      ? (days_until_payment ?? threshold ?? 0)
+      : (days_until_ex_date ?? threshold ?? 0);
     fields.push({
       type: 'mrkdwn' as const,
-      text: `*Days Until:*\n${daysUntil ?? 0} days`,
+      text: `*Days Until:*\n${daysUntil} days`,
     });
 
     return [
