@@ -7,11 +7,18 @@ describe('formatAlertMessage', () => {
     event: 'alert.triggered',
     timestamp: '2024-01-15T10:30:00Z',
     data: {
-      alert_id: 'alert_123',
-      symbol: 'AAPL',
-      condition: 'price_above',
-      threshold: 180,
-      current_value: 185.5,
+      alert: {
+        id: 'alert_123',
+        symbol: 'AAPL',
+        condition: 'price_above',
+        threshold: 180,
+      },
+      stock: {
+        symbol: 'AAPL',
+        price: 185.5,
+        change: 5.5,
+        change_percent: 3.06,
+      },
       triggered_at: '2024-01-15T10:30:00Z',
       parameters: null,
     },
@@ -56,9 +63,17 @@ describe('formatAlertMessage', () => {
       ...baseAlert,
       data: {
         ...baseAlert.data,
-        condition: 'price_below',
-        threshold: 200,
-        current_value: 185.5,
+        alert: {
+          ...baseAlert.data.alert,
+          condition: 'price_below',
+          threshold: 200,
+        },
+        stock: {
+          ...baseAlert.data.stock,
+          price: 185.5,
+          change: -14.5,
+          change_percent: -7.25,
+        },
       },
     };
 
@@ -75,9 +90,15 @@ describe('formatAlertMessage', () => {
       ...baseAlert,
       data: {
         ...baseAlert.data,
-        condition: 'volume_change',
-        threshold: 50, // 50% increase threshold
-        current_value: 75.5, // 75.5% actual increase
+        alert: {
+          ...baseAlert.data.alert,
+          condition: 'volume_change',
+          threshold: 50, // 50% increase threshold
+        },
+        stock: {
+          ...baseAlert.data.stock,
+        },
+        volume_change_percentage: 75.5, // 75.5% actual increase
       },
     };
 
@@ -85,7 +106,8 @@ describe('formatAlertMessage', () => {
     const headerText = (result.blocks[0] as any).text.text;
 
     expect(headerText).toContain('📊'); // Volume change emoji from ALERT_EMOJIS
-    expect(headerText).toBe('📊 AAPL Alert: Volume Spike +75.50%');
+    // v1 API: formatPercentage called with showPlus=false in header
+    expect(headerText).toBe('📊 AAPL Alert: Volume Spike 75.50%');
     expect(result.text).toBe('AAPL Alert: Volume Change');
   });
 
@@ -111,9 +133,15 @@ describe('formatAlertMessage', () => {
         ...baseAlert,
         data: {
           ...baseAlert.data,
-          condition,
-          threshold: 100,
-          current_value: 110,
+          alert: {
+            ...baseAlert.data.alert,
+            condition,
+            threshold: 100,
+          },
+          stock: {
+            ...baseAlert.data.stock,
+            price: 110,
+          },
         },
       };
 
@@ -179,7 +207,13 @@ describe('formatAlertMessage', () => {
       ...baseAlert,
       data: {
         ...baseAlert.data,
-        condition: 'moving_average',
+        alert: {
+          ...baseAlert.data.alert,
+          condition: 'moving_average',
+        },
+        stock: {
+          ...baseAlert.data.stock,
+        },
         parameters: {
           period: 50,
           type: 'SMA',
@@ -200,9 +234,17 @@ describe('formatAlertMessage', () => {
       ...baseAlert,
       data: {
         ...baseAlert.data,
-        condition: 'price_above',
-        threshold: 10000000,
-        current_value: 15500000,
+        alert: {
+          ...baseAlert.data.alert,
+          condition: 'price_above',
+          threshold: 10000000,
+        },
+        stock: {
+          ...baseAlert.data.stock,
+          price: 15500000,
+          change: 5500000,
+          change_percent: 55.0,
+        },
       },
     };
 
@@ -220,8 +262,14 @@ describe('formatAlertMessage', () => {
       ...baseAlert,
       data: {
         ...baseAlert.data,
-        threshold: 0,
-        current_value: 185.5,
+        alert: {
+          ...baseAlert.data.alert,
+          threshold: 0,
+        },
+        stock: {
+          ...baseAlert.data.stock,
+          price: 185.5,
+        },
       },
     };
 
@@ -235,9 +283,15 @@ describe('formatAlertMessage', () => {
       ...baseAlert,
       data: {
         ...baseAlert.data,
-        condition: 'unknown_condition' as any,
-        threshold: 100,
-        current_value: 110,
+        alert: {
+          ...baseAlert.data.alert,
+          condition: 'unknown_condition' as any,
+          threshold: 100,
+        },
+        stock: {
+          ...baseAlert.data.stock,
+          price: 110,
+        },
       },
     };
 

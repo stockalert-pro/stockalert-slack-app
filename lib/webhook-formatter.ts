@@ -31,21 +31,23 @@ export interface FormattedAlertData {
 }
 
 /**
- * Extract and format webhook data based on alert type
+ * Extract and format webhook data based on alert type (v1 API)
+ * Updated for nested data structure from openapi.yaml
  */
 export function formatWebhookData(event: AlertEvent): FormattedAlertData {
   const data = event.data;
+  const { alert, stock } = data;
 
-  // Base data that all alerts have
+  // Base data that all alerts have (v1 API structure)
   const baseData = {
-    alertId: data.alert_id,
-    symbol: data.symbol,
+    alertId: alert.id,
+    symbol: alert.symbol,
     companyName: data.company_name,
-    condition: data.condition,
-    threshold: data.threshold,
-    currentValue: data.current_value,
-    stockPrice: data.price,
-    triggeredAt: data.triggered_at,
+    condition: alert.condition,
+    threshold: alert.threshold,
+    currentValue: stock.price, // v1 API: price is in stock object
+    stockPrice: stock.price,
+    triggeredAt: data.triggered_at || event.timestamp, // Use extended field or event timestamp
     reason: data.reason,
     parameters: data.parameters,
     isTest: data.test,
@@ -54,21 +56,18 @@ export function formatWebhookData(event: AlertEvent): FormattedAlertData {
   // Determine the actual display value based on alert type
   let displayValue: number | undefined;
 
-  // Fundamental ratio alerts
-  if (data.condition.includes('forward_pe')) {
+  // Fundamental ratio alerts (extended fields)
+  if (alert.condition.includes('forward_pe')) {
     displayValue = data.forward_pe;
-  } else if (data.condition.includes('pe_ratio')) {
+  } else if (alert.condition.includes('pe_ratio')) {
     displayValue = data.pe_ratio;
-  } else if (data.actual_value !== undefined) {
-    // Some alerts may provide actual_value separately
-    displayValue = data.actual_value;
   }
 
   // Format values based on alert type
   const formattedData = formatAlertValues(
-    data.condition,
-    data.threshold,
-    data.current_value,
+    alert.condition,
+    alert.threshold,
+    stock.price, // Current value is the stock price
     displayValue
   );
 

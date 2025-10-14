@@ -12,14 +12,29 @@ const WEBHOOK_URL = process.env['WEBHOOK_URL'] || `${BASE_URL}/api/webhooks/${TE
 const WEBHOOK_SECRET =
   process.env['WEBHOOK_SECRET'] || process.env['STOCKALERT_WEBHOOK_SECRET'] || null;
 
-// Helper function to create different alert payloads
+// Helper function to create different alert payloads (v1 API)
+// Updated to match the new nested structure from openapi.yaml
 function createAlertPayload(type: string = 'price_above') {
   const basePayload = {
     event: 'alert.triggered' as const,
     timestamp: new Date().toISOString(),
     data: {
-      alert_id: `alert_test_${Date.now()}`,
-      symbol: 'AAPL',
+      // v1 API: Core alert information
+      alert: {
+        id: `alert_test_${Date.now()}`,
+        symbol: 'AAPL',
+        condition: 'price_above', // Will be overridden per alert type
+        threshold: null as number | null,
+        status: 'triggered' as const,
+      },
+      // v1 API: Stock price information
+      stock: {
+        symbol: 'AAPL',
+        price: 205.5,
+        change: 5.3,
+        change_percent: 2.65,
+      },
+      // Extended fields (optional, for detailed alerts)
       company_name: 'Apple Inc.',
       triggered_at: new Date().toISOString(),
       reason: 'Alert condition met',
@@ -34,11 +49,21 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'forward_pe_below',
-          threshold: 25.0,
-          current_value: 222.59, // This is the stock price
-          price: 222.59,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'forward_pe_below',
+            threshold: 25.0,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 222.59,
+            change: 5.3,
+            change_percent: 2.65,
+          },
           forward_pe: 22.5, // This is the actual Forward P/E ratio
+          parameters: {
+            forward_eps: null,
+          },
         },
       };
 
@@ -47,10 +72,17 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'pe_ratio_above',
-          threshold: 30.0,
-          current_value: 205.5, // Stock price
-          price: 205.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'pe_ratio_above',
+            threshold: 30.0,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 205.5,
+            change: 5.3,
+            change_percent: 2.65,
+          },
           pe_ratio: 32.5, // Actual P/E ratio
           parameters: {
             eps: 6.32,
@@ -63,11 +95,19 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'BAC',
-          condition: 'pe_ratio_below',
-          threshold: 15.0,
-          current_value: 35.75,
-          price: 35.75,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'BAC',
+            condition: 'pe_ratio_below',
+            threshold: 15.0,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'BAC',
+            price: 35.75,
+            change: 0.85,
+            change_percent: 2.43,
+          },
           pe_ratio: 12.8,
           parameters: {
             eps: 2.79,
@@ -80,11 +120,19 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'NFLX',
-          condition: 'forward_pe_above',
-          threshold: 35.0,
-          current_value: 485.25,
-          price: 485.25,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'NFLX',
+            condition: 'forward_pe_above',
+            threshold: 35.0,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'NFLX',
+            price: 485.25,
+            change: 12.5,
+            change_percent: 2.64,
+          },
           forward_pe: 38.2,
           parameters: {
             forward_eps: 12.7,
@@ -97,10 +145,17 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'price_above',
-          threshold: 200.0,
-          current_value: 205.5,
-          price: 205.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'price_above',
+            threshold: 200.0,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 205.5,
+            change: 5.3,
+            change_percent: 2.65,
+          },
         },
       };
 
@@ -109,11 +164,20 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'GOOGL',
-          condition: 'price_change_up',
-          threshold: 5.0, // 5% increase threshold
-          current_value: 7.2, // Actual percentage increase
-          price: 142.8,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'GOOGL',
+            condition: 'price_change_up',
+            threshold: 5.0, // 5% increase threshold
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'GOOGL',
+            price: 142.8,
+            change: 9.55,
+            change_percent: 7.2,
+          },
+          price_change_percentage: 7.2, // Actual percentage increase
         },
       };
 
@@ -122,11 +186,20 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'AMZN',
-          condition: 'price_change_down',
-          threshold: 3.0, // 3% drop threshold
-          current_value: -5.5, // Actual percentage drop (negative)
-          price: 178.5,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'AMZN',
+            condition: 'price_change_down',
+            threshold: 3.0, // 3% drop threshold
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'AMZN',
+            price: 178.5,
+            change: -10.39,
+            change_percent: -5.5,
+          },
+          price_change_percentage: -5.5, // Actual percentage drop (negative)
         },
       };
 
@@ -135,10 +208,18 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'rsi_limit',
-          threshold: 70.0,
-          current_value: 72.5, // RSI value
-          price: 205.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'rsi_limit',
+            threshold: 70.0,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 205.5,
+            change: 5.3,
+            change_percent: 2.65,
+          },
+          rsi: 72.5, // RSI value
           parameters: { direction: 'above' },
         },
       };
@@ -148,11 +229,21 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'NVDA',
-          condition: 'new_high',
-          threshold: 0, // Not used for 52-week alerts
-          current_value: 850.0, // Current price at new high
-          price: 850.0,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'NVDA',
+            condition: 'new_high',
+            threshold: null, // Not used for 52-week alerts
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'NVDA',
+            price: 850.0, // Current price at new high
+            change: 25.0,
+            change_percent: 3.03,
+          },
+          week_52_high: 850.0,
+          previous_high: 825.0,
         },
       };
 
@@ -161,11 +252,21 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'META',
-          condition: 'new_low',
-          threshold: 0, // Not used for 52-week alerts
-          current_value: 450.0, // Current price at new low
-          price: 450.0,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'META',
+            condition: 'new_low',
+            threshold: null, // Not used for 52-week alerts
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'META',
+            price: 450.0, // Current price at new low
+            change: -15.0,
+            change_percent: -3.23,
+          },
+          week_52_low: 450.0,
+          previous_low: 465.0,
         },
       };
 
@@ -174,10 +275,19 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'ma_crossover_golden',
-          threshold: 0, // Not used for crossovers
-          current_value: 205.5,
-          price: 205.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'ma_crossover_golden',
+            threshold: null, // Not used for crossovers
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 205.5,
+            change: 5.3,
+            change_percent: 2.65,
+          },
+          ma50: 204.75,
+          ma200: 203.9,
           parameters: {
             shortPeriod: 50,
             longPeriod: 200,
@@ -192,10 +302,19 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'ma_crossover_death',
-          threshold: 0,
-          current_value: 195.5,
-          price: 195.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'ma_crossover_death',
+            threshold: null,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 195.5,
+            change: -9.5,
+            change_percent: -4.63,
+          },
+          ma50: 196.25,
+          ma200: 197.1,
           parameters: {
             shortPeriod: 50,
             longPeriod: 200,
@@ -210,12 +329,20 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'ma_touch_above',
-          threshold: 200, // 200-day MA
-          current_value: 210.5,
-          price: 210.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'ma_touch_above',
+            threshold: 200, // 200-day MA
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 210.5,
+            change: 10.3,
+            change_percent: 5.14,
+          },
+          ma_value: 200.0,
           parameters: {
-            ma_value: 200,
+            ma_value: 200.0,
           },
         },
       };
@@ -225,12 +352,20 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'ma_touch_below',
-          threshold: 50, // 50-day MA
-          current_value: 195.5,
-          price: 195.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'ma_touch_below',
+            threshold: 50, // 50-day MA
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 195.5,
+            change: -9.5,
+            change_percent: -4.63,
+          },
+          ma_value: 200.0,
           parameters: {
-            ma_value: 200,
+            ma_value: 200.0,
           },
         },
       };
@@ -240,11 +375,22 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'TSLA',
-          condition: 'volume_change',
-          threshold: 50, // 50% increase threshold
-          current_value: 75.5, // 75.5% increase
-          price: 242.5,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'TSLA',
+            condition: 'volume_change',
+            threshold: 50, // 50% increase threshold
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'TSLA',
+            price: 242.5,
+            change: 8.5,
+            change_percent: 3.63,
+          },
+          volume: 125000000,
+          average_volume: 71250000,
+          volume_change_percentage: 75.5, // 75.5% increase
           parameters: {
             current_volume: 125000000,
             average_volume: 71250000,
@@ -257,10 +403,18 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'reminder',
-          threshold: 30, // 30 days
-          current_value: 215.5,
-          price: 215.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'reminder',
+            threshold: 30, // 30 days
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 215.5,
+            change: 15.3,
+            change_percent: 7.65,
+          },
+          price_change_percentage: 7.75,
           parameters: {
             price_change_percent: 7.75,
           },
@@ -272,10 +426,21 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: 'daily_reminder',
-          threshold: 1,
-          current_value: 220.5,
-          price: 220.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: 'daily_reminder',
+            threshold: null,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 220.5,
+            change: 1.75,
+            change_percent: 0.8,
+          },
+          previous_close: 218.75,
+          week_52_high: 237.8,
+          week_52_low: 164.3,
+          volume: 28750000,
           parameters: {
             previous_close: 218.75,
             week_52_high: 237.8,
@@ -290,11 +455,23 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'MSFT',
-          condition: 'earnings_announcement',
-          threshold: 3, // 3 days before
-          current_value: 378.85,
-          price: 378.85,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'MSFT',
+            condition: 'earnings_announcement',
+            threshold: 3, // 3 days before
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'MSFT',
+            price: 378.85,
+            change: 5.25,
+            change_percent: 1.41,
+          },
+          days_until_earnings: 3,
+          earnings_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          reporting_time: 'After Market Close',
+          estimated_eps: 2.93,
           parameters: {
             earnings_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
             reporting_time: 'After Market Close',
@@ -308,11 +485,23 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'JNJ',
-          condition: 'dividend_ex_date',
-          threshold: 2, // 2 days before
-          current_value: 155.25,
-          price: 155.25,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'JNJ',
+            condition: 'dividend_ex_date',
+            threshold: 2, // 2 days before
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'JNJ',
+            price: 155.25,
+            change: 1.25,
+            change_percent: 0.81,
+          },
+          days_until_ex_date: 2,
+          ex_dividend_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+          dividend_amount: 1.19,
+          dividend_yield: 3.06,
           parameters: {
             ex_dividend_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
             dividend_amount: 1.19,
@@ -326,11 +515,23 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          symbol: 'KO',
-          condition: 'dividend_payment',
-          threshold: 0,
-          current_value: 62.45,
-          price: 62.45,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'KO',
+            condition: 'dividend_payment',
+            threshold: null,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'KO',
+            price: 62.45,
+            change: 0.35,
+            change_percent: 0.56,
+          },
+          payment_date: new Date().toISOString(),
+          dividend_amount: 0.46,
+          shares: 500,
+          total_payment: 230.0,
           parameters: {
             payment_date: new Date().toISOString(),
             dividend_amount: 0.46,
@@ -344,10 +545,17 @@ function createAlertPayload(type: string = 'price_above') {
         ...basePayload,
         data: {
           ...basePayload.data,
-          condition: type,
-          threshold: 200.0,
-          current_value: 205.5,
-          price: 205.5,
+          alert: {
+            ...basePayload.data.alert,
+            condition: type,
+            threshold: 200.0,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            price: 205.5,
+            change: 5.3,
+            change_percent: 2.65,
+          },
         },
       };
   }
@@ -438,9 +646,13 @@ async function sendTestWebhook(): Promise<void> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Signature': `sha256=${signature}`, // Match OpenAPI spec format
+        // v1 API: Primary header (plain hex, no prefix)
+        'X-StockAlert-Signature': signature,
+        // v1 API: Convenience headers
         'X-StockAlert-Event': 'alert.triggered',
-        'X-StockAlert-Timestamp': Date.now().toString(),
+        'X-StockAlert-Timestamp': new Date().toISOString(),
+        // Legacy header (with sha256= prefix) for backward compatibility
+        'X-Signature': `sha256=${signature}`,
       },
       body: payloadString,
     });

@@ -2,10 +2,50 @@ import { AlertEvent } from './types';
 import { KnownBlock } from '@slack/web-api';
 
 /**
- * Slack Alert Formatter
+ * Slack Alert Formatter (v1 API)
  * Formats alerts according to the Slack Alert Formatting Specification
  * with proper color coding, emojis, and mobile-friendly layouts
+ *
+ * Updated for StockAlert.pro v1 API with nested data structure:
+ * - data.alert: Basic alert info (id, symbol, condition, threshold, status)
+ * - data.stock: Stock price info (symbol, price, change, change_percent)
+ * - data.*: Extended fields for detailed alert types
  */
+
+/**
+ * Normalized data interface for internal use
+ * Flattens the v1 API nested structure for easier access in formatter functions
+ */
+interface NormalizedAlertData {
+  alert_id: string;
+  symbol: string;
+  condition: string;
+  threshold: number | null;
+  current_value: number;
+  price: number;
+  company_name?: string;
+  triggered_at?: string;
+  // All other extended fields from the original event data
+  [key: string]: any;
+}
+
+/**
+ * Normalize v1 API event structure to a flat structure for internal use
+ * This maintains backward compatibility with existing formatter functions
+ */
+function normalizeEventData(event: AlertEvent): NormalizedAlertData {
+  const { alert, stock, ...extendedFields } = event.data;
+
+  return {
+    alert_id: alert.id,
+    symbol: alert.symbol,
+    condition: alert.condition,
+    threshold: alert.threshold,
+    current_value: stock.price,
+    price: stock.price,
+    ...extendedFields, // Spread extended fields (company_name, volume, etc.)
+  };
+}
 
 // Color constants for Slack formatting (kept for future use)
 // const COLORS = {
@@ -95,8 +135,8 @@ function formatTimestamp(dateString: string): string {
 /**
  * Get alert header text based on alert type
  */
-function getAlertHeader(event: AlertEvent): string {
-  const { symbol, condition, threshold } = event.data;
+function getAlertHeader(data: NormalizedAlertData): string {
+  const { symbol, condition, threshold } = data;
   const emoji = ALERT_EMOJIS[condition as keyof typeof ALERT_EMOJIS] || '🚨';
 
   switch (condition) {
@@ -105,9 +145,11 @@ function getAlertHeader(event: AlertEvent): string {
     case 'price_below':
       return `${emoji} ${symbol} Alert: Price Below Target`;
     case 'price_change_up':
-      return `${emoji} ${symbol} Alert: Price Up ${event.data.price_change_percentage ?? event.data.current_value}%`;
+      // v1 API: price_change_percentage is an extended field, not current_value
+      return `${emoji} ${symbol} Alert: Price Up ${data.price_change_percentage ? formatPercentage(data.price_change_percentage, false) : ''}`;
     case 'price_change_down':
-      return `${emoji} ${symbol} Alert: Price Down ${Math.abs(event.data.price_change_percentage ?? event.data.current_value)}%`;
+      // v1 API: price_change_percentage is an extended field, not current_value
+      return `${emoji} ${symbol} Alert: Price Down ${data.price_change_percentage ? formatPercentage(Math.abs(data.price_change_percentage), false) : ''}`;
     case 'new_high':
       return `${emoji} ${symbol} Alert: New 52-Week High!`;
     case 'new_low':
@@ -127,7 +169,8 @@ function getAlertHeader(event: AlertEvent): string {
     case 'daily_reminder':
       return `${emoji} ${symbol} Daily Update`;
     case 'volume_change':
-      return `${emoji} ${symbol} Alert: Volume Spike ${formatPercentage(event.data.volume_change_percentage ?? event.data.current_value)}`;
+      // v1 API: volume_change_percentage is an extended field, not current_value
+      return `${emoji} ${symbol} Alert: Volume Spike ${data.volume_change_percentage ? formatPercentage(Math.abs(data.volume_change_percentage), false) : ''}`;
     case 'pe_ratio_below':
       return `${emoji} ${symbol} Alert: P/E Below ${threshold ?? 0}`;
     case 'pe_ratio_above':
@@ -137,11 +180,11 @@ function getAlertHeader(event: AlertEvent): string {
     case 'forward_pe_above':
       return `${emoji} ${symbol} Alert: Forward P/E Above ${threshold ?? 0}`;
     case 'earnings_announcement':
-      return `${emoji} ${symbol} Alert: Earnings in ${event.data.days_until_earnings ?? threshold ?? 0} Days`;
+      return `${emoji} ${symbol} Alert: Earnings in ${data.days_until_earnings ?? threshold ?? 0} Days`;
     case 'dividend_ex_date':
-      return `${emoji} ${symbol} Alert: Ex-Dividend in ${event.data.days_until_ex_date ?? 0} Days`;
+      return `${emoji} ${symbol} Alert: Ex-Dividend in ${data.days_until_ex_date ?? 0} Days`;
     case 'dividend_payment':
-      return `${emoji} ${symbol} Alert: Dividend Payment in ${event.data.days_until_payment ?? 0} Days`;
+      return `${emoji} ${symbol} Alert: Dividend Payment in ${data.days_until_payment ?? 0} Days`;
     default:
       return `🚨 ${symbol} Alert: ${condition.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}`;
   }
@@ -150,8 +193,8 @@ function getAlertHeader(event: AlertEvent): string {
 /**
  * Format price alerts (price_above, price_below)
  */
-function formatPriceAlert(event: AlertEvent): KnownBlock[] {
-  const { symbol, company_name, current_value, threshold, price } = event.data;
+function formatPriceAlert(data: NormalizedAlertData): KnownBlock[] {
+  const { symbol, company_name, current_value, threshold, price } = data;
   const priceValue = price ?? current_value;
   const changePercent = threshold ? ((priceValue - threshold) / threshold) * 100 : 0;
 
@@ -183,21 +226,23 @@ function formatPriceAlert(event: AlertEvent): KnownBlock[] {
 /**
  * Format percentage change alerts
  */
-function formatPercentageChangeAlert(event: AlertEvent, isUp: boolean): KnownBlock[] {
+function formatPercentageChangeAlert(data: NormalizedAlertData, isUp: boolean): KnownBlock[] {
   const {
     symbol,
     company_name,
-    current_value,
     threshold,
     price,
     price_change_percentage,
     initial_price,
     reference_price,
     previous_close,
-  } = event.data;
+  } = data;
   const currentPrice = price ?? 0;
   const basePrice = initial_price ?? reference_price ?? previous_close ?? 0;
-  const actualChangePercent = price_change_percentage ?? current_value;
+  // v1 API: price_change_percentage is the actual percentage, current_value is now the price
+  // Only use price_change_percentage if available, otherwise calculate from prices
+  const actualChangePercent =
+    price_change_percentage ?? (basePrice > 0 ? ((currentPrice - basePrice) / basePrice) * 100 : 0);
 
   return [
     {
@@ -231,7 +276,7 @@ function formatPercentageChangeAlert(event: AlertEvent, isUp: boolean): KnownBlo
 /**
  * Format 52-week high/low alerts
  */
-function format52WeekAlert(event: AlertEvent, isHigh: boolean): KnownBlock[] {
+function format52WeekAlert(data: NormalizedAlertData, isHigh: boolean): KnownBlock[] {
   const {
     symbol,
     company_name,
@@ -240,7 +285,7 @@ function format52WeekAlert(event: AlertEvent, isHigh: boolean): KnownBlock[] {
     week_52_low,
     previous_high,
     previous_low,
-  } = event.data;
+  } = data;
   const newValue = isHigh ? (week_52_high ?? current_value) : (week_52_low ?? current_value);
   const previousValue = isHigh ? previous_high : previous_low;
 
@@ -296,8 +341,8 @@ function format52WeekAlert(event: AlertEvent, isHigh: boolean): KnownBlock[] {
 /**
  * Format moving average crossover alerts
  */
-function formatMACrossoverAlert(event: AlertEvent, isGolden: boolean): KnownBlock[] {
-  const { symbol, company_name, current_value, price, ma50, ma200, ma_short, ma_long } = event.data;
+function formatMACrossoverAlert(data: NormalizedAlertData, isGolden: boolean): KnownBlock[] {
+  const { symbol, company_name, current_value, price, ma50, ma200, ma_short, ma_long } = data;
   const currentPrice = price ?? current_value;
   const shortMA = ma50 ?? ma_short ?? current_value;
   const longMA = ma200 ?? ma_long ?? current_value;
@@ -354,9 +399,9 @@ function formatMACrossoverAlert(event: AlertEvent, isGolden: boolean): KnownBloc
 /**
  * Format RSI alerts
  */
-function formatRSIAlert(event: AlertEvent): KnownBlock[] {
+function formatRSIAlert(data: NormalizedAlertData): KnownBlock[] {
   const { symbol, company_name, current_value, threshold, price, rsi, rsi_value, comparison } =
-    event.data;
+    data;
   const currentPrice = price ?? 0;
   const rsiVal = rsi ?? rsi_value ?? current_value;
   const isOverbought = rsiVal > 70;
@@ -400,7 +445,7 @@ function formatRSIAlert(event: AlertEvent): KnownBlock[] {
 /**
  * Format P/E ratio alerts
  */
-function formatPERatioAlert(event: AlertEvent, isForward: boolean): KnownBlock[] {
+function formatPERatioAlert(data: NormalizedAlertData, isForward: boolean): KnownBlock[] {
   const {
     symbol,
     company_name,
@@ -410,7 +455,7 @@ function formatPERatioAlert(event: AlertEvent, isForward: boolean): KnownBlock[]
     pe_ratio,
     forward_pe,
     parameters,
-  } = event.data;
+  } = data;
   const actualRatio = isForward ? (forward_pe ?? current_value) : (pe_ratio ?? current_value);
   const currentPrice = price ?? (parameters?.price as number) ?? 0;
   const eps = parameters?.eps as number;
@@ -461,21 +506,24 @@ function formatPERatioAlert(event: AlertEvent, isForward: boolean): KnownBlock[]
 /**
  * Format volume change alerts
  */
-function formatVolumeChangeAlert(event: AlertEvent): KnownBlock[] {
+function formatVolumeChangeAlert(data: NormalizedAlertData): KnownBlock[] {
   const {
     symbol,
     company_name,
-    current_value,
     threshold,
     price,
     volume,
     average_volume,
     volume_change_percentage,
-  } = event.data;
+  } = data;
   const currentPrice = price ?? 0;
   const currentVolume = volume ?? 0;
   const avgVolume = average_volume ?? 0;
-  const volumeChangePercent = volume_change_percentage ?? current_value;
+  // v1 API: volume_change_percentage is the actual percentage, current_value is now the price
+  // Only use volume_change_percentage if available, otherwise calculate from volumes
+  const volumeChangePercent =
+    volume_change_percentage ??
+    (avgVolume > 0 ? ((currentVolume - avgVolume) / avgVolume) * 100 : 0);
 
   const fields = [
     {
@@ -527,7 +575,7 @@ function formatVolumeChangeAlert(event: AlertEvent): KnownBlock[] {
 /**
  * Format earnings announcement alerts
  */
-function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
+function formatEarningsAlert(data: NormalizedAlertData, timestamp: string): KnownBlock[] {
   const {
     symbol,
     company_name,
@@ -537,7 +585,7 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
     reporting_time,
     estimated_eps,
     threshold,
-  } = event.data;
+  } = data;
   const currentPrice = price ?? 0;
   const daysUntil = days_until_earnings ?? threshold ?? 0;
 
@@ -558,7 +606,7 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
   fields.push(
     {
       type: 'mrkdwn' as const,
-      text: `*Earnings Date:*\n*${formatDate(earnings_date || event.timestamp)}*`,
+      text: `*Earnings Date:*\n*${formatDate(earnings_date || timestamp)}*`,
     },
     {
       type: 'mrkdwn' as const,
@@ -598,7 +646,11 @@ function formatEarningsAlert(event: AlertEvent): KnownBlock[] {
 /**
  * Format dividend alerts
  */
-function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[] {
+function formatDividendAlert(
+  data: NormalizedAlertData,
+  isPayment: boolean,
+  timestamp: string
+): KnownBlock[] {
   const {
     symbol,
     company_name,
@@ -612,7 +664,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
     days_until_ex_date,
     days_until_payment,
     parameters,
-  } = event.data;
+  } = data;
   const currentPrice = price ?? 0;
   const dividendAmt = dividend_amount ?? (parameters?.dividend_amount as number) ?? 0;
   const dividendYld = dividend_yield ?? (parameters?.dividend_yield as number);
@@ -639,7 +691,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
 
     fields.push({
       type: 'mrkdwn' as const,
-      text: `*Payment Date:*\n${formatDate(payDate || event.timestamp)}`,
+      text: `*Payment Date:*\n${formatDate(payDate || timestamp)}`,
     });
 
     if (dividendAmt > 0) {
@@ -695,7 +747,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
 
     fields.push({
       type: 'mrkdwn' as const,
-      text: `*Ex-Dividend Date:*\n*${formatDate(exDate || event.timestamp)}*`,
+      text: `*Ex-Dividend Date:*\n*${formatDate(exDate || timestamp)}*`,
     });
 
     if (dividendAmt > 0) {
@@ -737,7 +789,7 @@ function formatDividendAlert(event: AlertEvent, isPayment: boolean): KnownBlock[
 /**
  * Format reminder alerts
  */
-function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] {
+function formatReminderAlert(data: NormalizedAlertData, isDaily: boolean): KnownBlock[] {
   const {
     symbol,
     company_name,
@@ -748,7 +800,7 @@ function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] 
     volume,
     parameters,
     threshold,
-  } = event.data;
+  } = data;
   const currentPrice = price ?? 0;
 
   if (isDaily) {
@@ -839,24 +891,27 @@ function formatReminderAlert(event: AlertEvent, isDaily: boolean): KnownBlock[] 
 }
 
 /**
- * Main formatter function
+ * Main formatter function (v1 API)
+ * Normalizes the nested API structure and formats alert for Slack
  */
 export function formatSlackAlert(event: AlertEvent): {
   text: string;
   blocks: KnownBlock[];
 } {
-  const { condition, alert_id, triggered_at } = event.data;
-
   // Only process triggered alerts
   if (event.event !== 'alert.triggered') {
     return {
-      text: `${event.data.symbol} Alert: ${event.event}`,
+      text: `${event.data.alert.symbol} Alert: ${event.event}`,
       blocks: [],
     };
   }
 
+  // Normalize v1 API structure to flat structure for easier formatting
+  const data = normalizeEventData(event);
+  const { condition, alert_id, triggered_at, symbol } = data;
+
   // Get header
-  const headerText = getAlertHeader(event);
+  const headerText = getAlertHeader(data);
 
   // Build blocks
   const blocks: KnownBlock[] = [
@@ -874,69 +929,69 @@ export function formatSlackAlert(event: AlertEvent): {
   switch (condition) {
     case 'price_above':
     case 'price_below':
-      blocks.push(...formatPriceAlert(event));
+      blocks.push(...formatPriceAlert(data));
       break;
     case 'price_change_up':
-      blocks.push(...formatPercentageChangeAlert(event, true));
+      blocks.push(...formatPercentageChangeAlert(data, true));
       break;
     case 'price_change_down':
-      blocks.push(...formatPercentageChangeAlert(event, false));
+      blocks.push(...formatPercentageChangeAlert(data, false));
       break;
     case 'new_high':
-      blocks.push(...format52WeekAlert(event, true));
+      blocks.push(...format52WeekAlert(data, true));
       break;
     case 'new_low':
-      blocks.push(...format52WeekAlert(event, false));
+      blocks.push(...format52WeekAlert(data, false));
       break;
     case 'ma_crossover_golden':
-      blocks.push(...formatMACrossoverAlert(event, true));
+      blocks.push(...formatMACrossoverAlert(data, true));
       break;
     case 'ma_crossover_death':
-      blocks.push(...formatMACrossoverAlert(event, false));
+      blocks.push(...formatMACrossoverAlert(data, false));
       break;
     case 'ma_touch_above':
     case 'ma_touch_below':
-      blocks.push(...formatMATouchAlert(event));
+      blocks.push(...formatMATouchAlert(data));
       break;
     case 'rsi_limit':
-      blocks.push(...formatRSIAlert(event));
+      blocks.push(...formatRSIAlert(data));
       break;
     case 'pe_ratio_below':
     case 'pe_ratio_above':
-      blocks.push(...formatPERatioAlert(event, false));
+      blocks.push(...formatPERatioAlert(data, false));
       break;
     case 'forward_pe_below':
     case 'forward_pe_above':
-      blocks.push(...formatPERatioAlert(event, true));
+      blocks.push(...formatPERatioAlert(data, true));
       break;
     case 'volume_change':
-      blocks.push(...formatVolumeChangeAlert(event));
+      blocks.push(...formatVolumeChangeAlert(data));
       break;
     case 'earnings_announcement':
-      blocks.push(...formatEarningsAlert(event));
+      blocks.push(...formatEarningsAlert(data, event.timestamp));
       break;
     case 'dividend_ex_date':
-      blocks.push(...formatDividendAlert(event, false));
+      blocks.push(...formatDividendAlert(data, false, event.timestamp));
       break;
     case 'dividend_payment':
-      blocks.push(...formatDividendAlert(event, true));
+      blocks.push(...formatDividendAlert(data, true, event.timestamp));
       break;
     case 'reminder':
-      blocks.push(...formatReminderAlert(event, false));
+      blocks.push(...formatReminderAlert(data, false));
       break;
     case 'daily_reminder':
-      blocks.push(...formatReminderAlert(event, true));
+      blocks.push(...formatReminderAlert(data, true));
       break;
     default:
-      blocks.push(formatDefaultAlert(event));
+      blocks.push(formatDefaultAlert(data));
   }
 
   // Add context with timestamp
   const contextText =
     condition === 'reminder'
-      ? `Reminder for ${formatDate(event.data.reminder_date || event.timestamp)} | Alert ID: ${alert_id}`
+      ? `Reminder for ${formatDate(data.reminder_date || event.timestamp)} | Alert ID: ${alert_id}`
       : condition === 'daily_reminder'
-        ? `Daily update at ${event.data.reminder_time || 'market open'} | Alert ID: ${alert_id}`
+        ? `Daily update at ${data.reminder_time || 'market open'} | Alert ID: ${alert_id}`
         : `Triggered at ${formatTimestamp(triggered_at || event.timestamp)} | Alert ID: ${alert_id}`;
 
   blocks.push({
@@ -970,14 +1025,14 @@ export function formatSlackAlert(event: AlertEvent): {
           text: 'View Stock',
           emoji: true,
         },
-        url: `https://stockalert.pro/stocks/${event.data.symbol}`,
+        url: `https://stockalert.pro/stocks/${symbol}`,
         action_id: 'view_stock',
       },
     ],
   });
 
   // Fallback text for notifications
-  const text = `${event.data.symbol} Alert: ${condition.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}`;
+  const text = `${symbol} Alert: ${condition.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}`;
 
   return { text, blocks };
 }
@@ -985,9 +1040,8 @@ export function formatSlackAlert(event: AlertEvent): {
 /**
  * Format MA touch alerts
  */
-function formatMATouchAlert(event: AlertEvent): KnownBlock[] {
-  const { symbol, company_name, current_value, threshold, condition, price, ma, ma_period } =
-    event.data;
+function formatMATouchAlert(data: NormalizedAlertData): KnownBlock[] {
+  const { symbol, company_name, current_value, threshold, condition, price, ma, ma_period } = data;
   const currentPrice = price ?? current_value;
   const maValue = ma ?? current_value;
   const period = ma_period ?? threshold ?? 0;
@@ -1023,8 +1077,8 @@ function formatMATouchAlert(event: AlertEvent): KnownBlock[] {
 /**
  * Format default alert (fallback)
  */
-function formatDefaultAlert(event: AlertEvent): KnownBlock {
-  const { symbol, company_name, current_value, threshold, price } = event.data;
+function formatDefaultAlert(data: NormalizedAlertData): KnownBlock {
+  const { symbol, company_name, current_value, threshold, price } = data;
   const currentPrice = price ?? 0;
 
   const fields = [
