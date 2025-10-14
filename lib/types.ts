@@ -1,34 +1,51 @@
 import { z } from 'zod';
 
 /**
- * StockAlert.pro webhook payload schema
- * This is the current schema used by the StockAlert.pro API
+ * StockAlert.pro webhook payload schema (v1 API)
+ * Updated to match the new API structure from openapi.yaml
+ *
+ * Structure:
+ * - event: 'alert.triggered'
+ * - timestamp: ISO 8601 timestamp
+ * - data:
+ *   - alert: Basic alert info (id, symbol, condition, threshold, status)
+ *   - stock: Stock price info (symbol, price, change, change_percent)
+ *   - [extended fields]: Additional type-specific fields for detailed alerts
  */
 export const AlertEventSchema = z.object({
-  event: z.enum(['alert.triggered', 'alert.created', 'alert.updated', 'alert.deleted']),
+  event: z.enum(['alert.triggered']),
   timestamp: z.string(),
   data: z.object({
-    alert_id: z.string(),
-    symbol: z.string(),
-    condition: z.string(),
-    threshold: z.number().nullable(),
-    current_value: z.number(),
-    triggered_at: z.string(),
-    reason: z.string().optional(),
-    parameters: z.record(z.unknown()).nullable(),
-    test: z.boolean().optional(),
-    // Additional fields that might be present
-    price: z.number().optional(),
-    forward_pe: z.number().optional(),
-    pe_ratio: z.number().optional(),
-    actual_value: z.number().optional(),
+    // Core alert information (from API spec)
+    alert: z.object({
+      id: z.string(),
+      symbol: z.string(),
+      condition: z.string(),
+      threshold: z.number().nullable(),
+      status: z.string().optional(),
+    }),
+
+    // Stock price information (from API spec)
+    stock: z.object({
+      symbol: z.string(),
+      price: z.number(),
+      change: z.number().nullable(),
+      change_percent: z.number().nullable(),
+    }),
+
+    // Extended fields for detailed alert types (optional, for backward compatibility)
+    // These provide additional context beyond the basic API structure
     company_name: z.string().optional(),
+    triggered_at: z.string().optional(),
+    reason: z.string().optional(),
+    parameters: z.record(z.unknown()).nullable().optional(),
+    test: z.boolean().optional(),
 
     // Price change fields
     price_change_percentage: z.number().optional(),
     initial_price: z.number().optional(),
     reference_price: z.number().optional(),
-    price_change_percent: z.number().optional(),
+    previous_close: z.number().nullable().optional(),
 
     // Volume-related fields
     volume: z.number().nullable().optional(),
@@ -58,6 +75,8 @@ export const AlertEventSchema = z.object({
     // Fundamental data
     eps: z.number().optional(),
     forward_eps: z.number().optional(),
+    pe_ratio: z.number().optional(),
+    forward_pe: z.number().optional(),
 
     // Dividend fields
     dividend_amount: z.number().optional(),
@@ -78,7 +97,6 @@ export const AlertEventSchema = z.object({
     // Time-based alerts
     reminder_date: z.string().optional(),
     reminder_time: z.string().optional(),
-    previous_close: z.number().nullable().optional(),
   }),
 });
 

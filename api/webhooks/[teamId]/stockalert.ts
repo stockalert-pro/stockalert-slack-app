@@ -111,7 +111,9 @@ export default async function handler(
       return res.status(404).json({ error: 'Installation not found' });
     }
 
-    // Verify StockAlert signature - check multiple possible headers
+    // Verify StockAlert signature using v1 API headers
+    // Primary header: X-StockAlert-Signature (as per openapi.yaml)
+    // Legacy headers: x-signature, x-webhook-signature (for backward compatibility)
     const signatureHeader =
       req.headers['x-stockalert-signature'] ||
       req.headers['x-signature'] ||
@@ -120,9 +122,16 @@ export default async function handler(
     // Handle both string and array types from headers
     const signature = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
 
-    // Debug logging
-    console.log('Webhook headers:', {
+    // Get additional v1 API headers for logging
+    const eventHeader = req.headers['x-stockalert-event'];
+    const timestampHeader = req.headers['x-stockalert-timestamp'];
+
+    // Debug logging with v1 API headers
+    console.log('Webhook headers (v1 API):', {
       'x-stockalert-signature': req.headers['x-stockalert-signature'],
+      'x-stockalert-event': eventHeader,
+      'x-stockalert-timestamp': timestampHeader,
+      // Legacy headers for backward compatibility
       'x-signature': req.headers['x-signature'],
       'x-webhook-signature': req.headers['x-webhook-signature'],
       'content-type': req.headers['content-type'],
@@ -133,20 +142,23 @@ export default async function handler(
       return res.status(401).json({ error: 'Missing signature' });
     }
 
-    // Log webhook receipt with full data for debugging
+    // Log webhook receipt with full data for debugging (v1 API structure)
     console.log(`Webhook received for team ${teamId}:`, {
       event: body.event,
-      symbol: body.data?.symbol,
-      alertId: body.data?.alert_id,
       timestamp: body.timestamp,
-      condition: body.data?.condition,
-      threshold: body.data?.threshold,
-      current_value: body.data?.current_value,
-      // Log any additional fields that might be present
-      price: body.data?.price,
-      forward_pe: body.data?.forward_pe,
-      pe_ratio: body.data?.pe_ratio,
-      actual_value: body.data?.actual_value,
+      // v1 API nested structure
+      alertId: body.data?.alert?.id,
+      symbol: body.data?.alert?.symbol || body.data?.stock?.symbol,
+      condition: body.data?.alert?.condition,
+      threshold: body.data?.alert?.threshold,
+      status: body.data?.alert?.status,
+      // Stock data
+      price: body.data?.stock?.price,
+      change: body.data?.stock?.change,
+      change_percent: body.data?.stock?.change_percent,
+      // Extended fields (if present)
+      company_name: body.data?.company_name,
+      triggered_at: body.data?.triggered_at,
     });
 
     // Get webhook secret for this team (from API integration or fallback to global)
@@ -176,11 +188,11 @@ export default async function handler(
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
-    // Parse and validate event
+    // Parse and validate event (v1 API structure)
     const event = AlertEventSchema.parse(body);
 
-    // Generate unique event ID from alert_id and timestamp
-    const eventId = `${event.data.alert_id}-${event.timestamp}`;
+    // Generate unique event ID from alert.id and timestamp (v1 API structure)
+    const eventId = `${event.data.alert.id}-${event.timestamp}`;
 
     // Store webhook event for idempotency and audit trail
     const webhookEvent = await measureAsync(
@@ -225,8 +237,8 @@ export default async function handler(
 
       monitor.incrementCounter('webhook.alerts.processed', 1, {
         team: teamId,
-        symbol: event.data.symbol,
-        condition: event.data.condition,
+        symbol: event.data.alert.symbol,
+        condition: event.data.alert.condition,
       });
     }
 
