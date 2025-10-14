@@ -246,6 +246,20 @@ paths:
                   notification: email
                   parameters:
                     direction: above
+              earningsAnnouncementAlert:
+                summary: Earnings Announcement Alert (days before)
+                value:
+                  symbol: AAPL
+                  condition: earnings_announcement
+                  threshold: 7
+                  notification: email
+              dividendExDateAlert:
+                summary: Dividend Ex-Date Alert (days before)
+                value:
+                  symbol: MSFT
+                  condition: dividend_ex_date
+                  threshold: 3
+                  notification: email
       responses:
         '201':
           description: Created
@@ -639,7 +653,7 @@ paths:
               slackWebhook:
                 summary: Slack incoming webhook
                 value:
-                  url: https://hooks.slack.com/services/YOUR_WORKSPACE_ID/YOUR_CHANNEL_ID/YOUR_WEBHOOK_TOKEN
+                  url: https://example.slack.com/services/WORKSPACE_ID/CHANNEL_ID/WEBHOOK_TOKEN
                   events: [alert.triggered]
       responses:
         '201':
@@ -784,7 +798,7 @@ paths:
               slackTest:
                 summary: Slack destination (no signature header)
                 value:
-                  url: https://hooks.slack.com/services/YOUR_WORKSPACE_ID/YOUR_CHANNEL_ID/YOUR_WEBHOOK_TOKEN
+                  url: https://example.slack.com/services/WORKSPACE_ID/CHANNEL_ID/WEBHOOK_TOKEN
                   secret: any-value
       responses:
         '200':
@@ -917,8 +931,10 @@ components:
           nullable: true
           description: |
             Threshold requirements depend on `condition`.
-            - Required: `price_above`, `price_below`, `price_change_up`, `price_change_down`, `rsi_limit`, `ma_touch_above`, `ma_touch_below`, `pe_ratio_below`, `pe_ratio_above`, `forward_pe_below`, `forward_pe_above`.
-            - Not used: `ma_crossover_golden`, `ma_crossover_death`, `daily_reminder`, `reminder`, `earnings_announcement`, `dividend_ex_date`, `dividend_payment`.
+            - Required: `price_above`, `price_below`, `price_change_up`, `price_change_down`, `rsi_limit`, `ma_touch_above`, `ma_touch_below`, `pe_ratio_below`, `pe_ratio_above`, `forward_pe_below`, `forward_pe_above`, `earnings_announcement`, `dividend_ex_date`.
+              • `earnings_announcement`: whole days before the earnings date (e.g., 7)
+              • `dividend_ex_date`: whole days before the ex‑dividend date (e.g., 3)
+            - Not used: `ma_crossover_golden`, `ma_crossover_death`, `daily_reminder`, `reminder`, `dividend_payment`.
         notification: { type: string, enum: [email, sms], default: email }
         parameters: { type: object, additionalProperties: true }
     Alert:
