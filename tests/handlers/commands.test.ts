@@ -253,10 +253,8 @@ describe('handleSlashCommand', () => {
       });
 
       expect(mockApi.createWebhook).toHaveBeenCalledWith({
-        name: 'Slack - test-team',
         url: 'https://example.com/webhooks/T123456/stockalert',
         events: ['alert.triggered'],
-        is_active: true,
       });
 
       expect(installationRepo.update).toHaveBeenCalledWith('T123456', {
