@@ -188,6 +188,17 @@ export default async function handler(
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
+    // Optional replay protection using X-StockAlert-Timestamp (ISO 8601)
+    const tsHeader = Array.isArray(timestampHeader) ? timestampHeader[0] : timestampHeader;
+    if (tsHeader) {
+      const toleranceMs = 10 * 60 * 1000; // 10 minutes
+      const ts = Date.parse(String(tsHeader));
+      if (Number.isNaN(ts) || Math.abs(Date.now() - ts) > toleranceMs) {
+        console.error('Stale or invalid webhook timestamp');
+        return res.status(401).json({ error: 'Invalid timestamp' });
+      }
+    }
+
     // Parse and validate event (v1 API structure)
     const event = AlertEventSchema.parse(body);
 

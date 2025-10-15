@@ -192,10 +192,8 @@ export default async function handler(
             if (!webhook) {
               console.log('No existing webhook found, creating new one...');
               webhook = await api.createWebhook({
-                name: `Slack - ${payload.team.domain}`,
                 url: webhookUrl,
                 events: ['alert.triggered'],
-                is_active: true,
               });
               console.log('Webhook created successfully:', webhook.id);
             } else if (webhook.is_active === false) {

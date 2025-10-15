@@ -293,10 +293,8 @@ async function handleCommandWithMonitoring(
         if (!webhook) {
           // Create new webhook
           webhook = await api.createWebhook({
-            name: `Slack - ${command.team_domain}`,
             url: webhookUrl,
             events: ['alert.triggered'],
-            is_active: true,
           });
         }
 

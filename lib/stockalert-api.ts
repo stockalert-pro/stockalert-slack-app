@@ -11,17 +11,15 @@ function hasProperty<T extends object, K extends PropertyKey>(
 }
 
 export interface CreateWebhookRequest {
-  name: string;
   url: string;
-  events: string[];
-  is_active?: boolean;
+  events?: string[];
 }
 
 export interface WebhookResponse {
   id: string;
   name?: string;
   url: string;
-  secret: string;
+  secret?: string; // Only returned on creation
   events: string[];
   enabled?: boolean;
   is_active?: boolean;
@@ -55,8 +53,7 @@ export class StockAlertAPI {
   constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
     // Use STOCKALERT_API_URL env var or default, NOT BASE_URL
-    this.baseUrl =
-      baseUrl || process.env['STOCKALERT_API_URL'] || 'https://stockalert.pro/api/public/v1';
+    this.baseUrl = baseUrl || process.env['STOCKALERT_API_URL'] || 'https://stockalert.pro/api/v1';
   }
 
   /**
@@ -66,6 +63,11 @@ export class StockAlertAPI {
     const url = `${this.baseUrl}/webhooks`;
     console.log('Creating webhook at:', url, data);
 
+    const body: CreateWebhookRequest = {
+      url: data.url,
+      events: data.events,
+    };
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -73,7 +75,7 @@ export class StockAlertAPI {
         'X-API-Key': this.apiKey,
         Accept: 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -87,7 +89,21 @@ export class StockAlertAPI {
     }
 
     const result = await response.json();
-    console.log('Webhook creation response:', result);
+    // Mask secret in logs (handle both envelope and direct response formats)
+    let masked: unknown = result;
+    if (
+      result &&
+      typeof result === 'object' &&
+      hasProperty(result, 'data') &&
+      result.data &&
+      typeof result.data === 'object'
+    ) {
+      masked = {
+        ...(result as Record<string, unknown>),
+        data: { ...(result.data as Record<string, unknown>), secret: 'whsec_***' },
+      };
+    }
+    console.log('Webhook creation response:', masked);
 
     // Handle different response formats - API might return the webhook directly or wrapped
     if (

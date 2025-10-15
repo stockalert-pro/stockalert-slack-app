@@ -54,10 +54,8 @@ describe('StockAlertAPI', () => {
 
   describe('createWebhook', () => {
     const webhookData: CreateWebhookRequest = {
-      name: 'Test Webhook',
       url: 'https://example.com/webhook',
       events: ['alert.triggered'],
-      is_active: true,
     };
 
     const mockWebhookResponse: WebhookResponse = {
