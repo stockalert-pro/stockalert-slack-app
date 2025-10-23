@@ -395,44 +395,39 @@ export class StockAlertAPI {
   }
 
   private static buildBaseUrlCandidates(rawBase: string): string[] {
-    const add = (set: Set<string>, value: string | null | undefined) => {
-      if (!value) return;
-      const cleaned = value.replace(/\/+$/, '');
-      if (cleaned) {
-        set.add(cleaned);
-      }
-    };
-
+    const norm = (s: string) => s.replace(/\/+$/, '');
     const candidates = new Set<string>();
-    add(candidates, rawBase);
+
+    const normalizePublic = (url: string): string => url.replace(/\/api\/public\/v1$/, '/api/v1');
 
     try {
-      const parsed = new URL(rawBase);
+      const normalizedRaw = normalizePublic(norm(rawBase));
+      const parsed = new URL(normalizedRaw);
       const origin = `${parsed.protocol}//${parsed.host}`;
-      const path = parsed.pathname.replace(/\/+$/, '');
+      const path = norm(parsed.pathname);
       const segments = path.split('/').filter(Boolean);
       const pathKey = segments.join('/');
 
-      if (!pathKey) {
-        add(candidates, `${origin}/api/v1`);
-        add(candidates, `${origin}/api/public/v1`);
-      } else if (pathKey === 'api') {
-        add(candidates, `${origin}/api/v1`);
-        add(candidates, `${origin}/api/public/v1`);
+      // If explicitly /v1 or /api/v1, keep it, and add the sibling variant as fallback
+      if (pathKey === 'v1') {
+        candidates.add(normalizedRaw); // .../v1
+        candidates.add(`${origin}/api/v1`); // fallback
       } else if (pathKey === 'api/v1') {
-        add(candidates, `${origin}/api/public/v1`);
-      } else if (pathKey === 'api/public') {
-        add(candidates, `${origin}/api/public/v1`);
-        add(candidates, `${origin}/api/v1`);
-      } else if (pathKey === 'api/public/v1') {
-        add(candidates, `${origin}/api/v1`);
-      } else if (!segments.includes('api')) {
-        add(candidates, `${origin}/api/v1`);
-        add(candidates, `${origin}/api/public/v1`);
+        candidates.add(normalizedRaw); // .../api/v1
+        candidates.add(`${origin}/v1`); // fallback
+      } else if (pathKey === 'api/public/v1' || pathKey === 'api/public') {
+        // Normalize public to /api/v1 only
+        candidates.add(`${origin}/api/v1`);
+      } else if (pathKey === 'api' || pathKey === '' || !segments.includes('api')) {
+        // Root or non-API path → prefer /api/v1
+        candidates.add(`${origin}/api/v1`);
+      } else {
+        // Unknown path → still prefer /api/v1 under same origin
+        candidates.add(`${origin}/api/v1`);
       }
     } catch {
-      // If rawBase is not a valid URL, fall back to default candidates
-      add(candidates, DEFAULT_BASE_URL);
+      // Not a full URL → fall back to default v1 endpoint
+      candidates.add(DEFAULT_BASE_URL);
     }
 
     return Array.from(candidates);
