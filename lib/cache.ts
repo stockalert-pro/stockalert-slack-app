@@ -12,9 +12,15 @@ export interface CacheEntry<T> {
   createdAt: number;
 }
 
+export interface CacheStats {
+  inMemorySize: number;
+  kvAvailable: boolean;
+  kvSize?: number;
+}
+
 // In-memory cache for fallback when KV is not available
 class InMemoryCache {
-  private cache = new Map<string, CacheEntry<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
   private cleanupInterval: NodeJS.Timeout;
 
   constructor() {
@@ -42,11 +48,15 @@ class InMemoryCache {
       return null;
     }
 
-    return entry.value;
+    return entry.value as T;
   }
 
   delete(key: string): void {
     this.cache.delete(key);
+  }
+
+  size(): number {
+    return this.cache.size;
   }
 
   clear(): void {
@@ -248,7 +258,7 @@ export class Cache {
   }
 
   // Warm up cache with frequently accessed data
-  async warmup(items: Array<{ key: string; value: any; options?: CacheOptions }>): Promise<void> {
+  async warmup(items: Array<{ key: string; value: unknown; options?: CacheOptions }>): Promise<void> {
     this.monitor.startTimer('cache.warmup');
 
     try {
@@ -265,9 +275,9 @@ export class Cache {
   }
 
   // Get cache statistics
-  async getStats(): Promise<Record<string, any>> {
-    const stats: Record<string, any> = {
-      inMemorySize: this.inMemory['cache'].size,
+  async getStats(): Promise<CacheStats> {
+    const stats: CacheStats = {
+      inMemorySize: this.inMemory.size(),
       kvAvailable: Boolean(process.env.KV_URL),
     };
 
@@ -286,14 +296,23 @@ export class Cache {
 
 // Cache decorators
 export function cached(options: CacheOptions = {}) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return function (
+    _target: unknown,
+    _propertyKey: string,
+    descriptor: TypedPropertyDescriptor<any>
+  ): TypedPropertyDescriptor<any> {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    if (!originalMethod) {
+      return descriptor;
+    }
+
+    descriptor.value = async function (...args: unknown[]) {
       const cache = Cache.getInstance();
 
       // Create cache key from method name and arguments
-      const cacheKey = `${target.constructor.name}.${propertyKey}:${JSON.stringify(args)}`;
+      const cacheKey = `${this.constructor.name}.${_propertyKey}:${JSON.stringify(args)}`;
 
       return cache.getOrSet(cacheKey, () => originalMethod.apply(this, args), options);
     };
@@ -311,14 +330,14 @@ export class ChannelCache {
     this.cache = Cache.getInstance();
   }
 
-  async getChannel(teamId: string, channelId: string): Promise<any | null> {
+  async getChannel<T = unknown>(teamId: string, channelId: string): Promise<T | null> {
     const key = `${teamId}:${channelId}`;
-    return this.cache.get(key, this.namespace);
+    return this.cache.get<T>(key, this.namespace);
   }
 
-  async setChannel(teamId: string, channelId: string, data: any): Promise<void> {
+  async setChannel<T = unknown>(teamId: string, channelId: string, data: T): Promise<void> {
     const key = `${teamId}:${channelId}`;
-    await this.cache.set(key, data, {
+    await this.cache.set<T>(key, data, {
       namespace: this.namespace,
       ttl: 3600, // 1 hour
     });
@@ -339,12 +358,12 @@ export class InstallationCache {
     this.cache = Cache.getInstance();
   }
 
-  async getInstallation(teamId: string): Promise<any | null> {
-    return this.cache.get(teamId, this.namespace);
+  async getInstallation<T = unknown>(teamId: string): Promise<T | null> {
+    return this.cache.get<T>(teamId, this.namespace);
   }
 
-  async setInstallation(teamId: string, installation: any): Promise<void> {
-    await this.cache.set(teamId, installation, {
+  async setInstallation<T = unknown>(teamId: string, installation: T): Promise<void> {
+    await this.cache.set<T>(teamId, installation, {
       namespace: this.namespace,
       ttl: 86400, // 24 hours
     });

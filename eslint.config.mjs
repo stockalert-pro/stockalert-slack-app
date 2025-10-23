@@ -23,4 +23,18 @@ export default typescriptEslint.config(
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   }
+  ,
+  {
+    files: ['tests/**/*.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  }
+  ,
+  {
+    files: ['scripts/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  }
 );

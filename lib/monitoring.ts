@@ -1,4 +1,5 @@
 import { kv } from '@vercel/kv';
+import type { RequestHandler } from 'express';
 
 // Metric types
 export type MetricType = 'counter' | 'histogram' | 'gauge';
@@ -16,6 +17,29 @@ export interface PerformanceMetric {
   duration: number;
   timestamp: number;
   tags?: Record<string, string>;
+}
+
+export interface MetricSummaryStats {
+  count: number;
+  sum: number;
+  min: number;
+  max: number;
+  avg: number;
+  latest: number;
+}
+
+export interface PerformanceSummaryStats {
+  count: number;
+  totalDuration: number;
+  minDuration: number;
+  maxDuration: number;
+  avgDuration: number;
+}
+
+export interface MetricsSummary {
+  timestamp: string;
+  metrics: Record<string, any>;
+  performance: Record<string, PerformanceSummaryStats>;
 }
 
 // Performance tracking
@@ -45,7 +69,7 @@ class PerformanceTracker {
 
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.log(`Performance: ${name} took ${duration}ms`, tags);
+      console.warn(`Performance: ${name} took ${duration}ms`, tags);
     }
 
     // Store in KV if available
@@ -142,10 +166,11 @@ export class Monitor {
   }
 
   // Get metrics summary
-  async getMetricsSummary(): Promise<Record<string, any>> {
-    const summary: Record<string, any> = {
+  async getMetricsSummary(): Promise<MetricsSummary> {
+    const summary: MetricsSummary = {
       timestamp: new Date().toISOString(),
       metrics: {},
+      performance: {},
     };
 
     // Process in-memory metrics
@@ -166,19 +191,15 @@ export class Monitor {
       }
 
       const stats = summary.metrics[name];
-      if (stats) {
-        for (const metric of values) {
-          stats.count++;
-          stats.sum += metric.value;
-          stats.min = Math.min(stats.min, metric.value);
-          stats.max = Math.max(stats.max, metric.value);
-          stats.latest = metric.value;
-        }
+      for (const metric of values) {
+        stats.count++;
+        stats.sum += metric.value;
+        stats.min = Math.min(stats.min, metric.value);
+        stats.max = Math.max(stats.max, metric.value);
+        stats.latest = metric.value;
       }
 
-      if (stats) {
-        stats.avg = stats.sum / stats.count;
-      }
+      stats.avg = stats.count > 0 ? stats.sum / stats.count : 0;
     }
 
     // Get recent performance metrics from KV
@@ -196,7 +217,7 @@ export class Monitor {
         }
 
         // Group by name
-        const perfByName: Record<string, any> = {};
+        const perfByName: Record<string, PerformanceSummaryStats> = {};
         for (const metric of recentPerf) {
           if (!perfByName[metric.name]) {
             perfByName[metric.name] = {
@@ -208,7 +229,7 @@ export class Monitor {
             };
           }
 
-          const stats = perfByName[metric.name];
+          const stats = perfByName[metric.name]!;
           stats.count++;
           stats.totalDuration += metric.duration;
           stats.minDuration = Math.min(stats.minDuration, metric.duration);
@@ -216,9 +237,9 @@ export class Monitor {
         }
 
         // Calculate averages
-        for (const name in perfByName) {
-          const stats = perfByName[name];
-          stats.avgDuration = stats.totalDuration / stats.count;
+        for (const [metricName, stats] of Object.entries(perfByName)) {
+          stats.avgDuration = stats.count > 0 ? stats.totalDuration / stats.count : 0;
+          perfByName[metricName] = stats;
         }
 
         summary.performance = perfByName;
@@ -258,14 +279,17 @@ export class Monitor {
 
 // Monitoring decorators
 export function monitored(name?: string) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  // Broad decorator typing to play nice with varied test signatures
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<any>) {
     const originalMethod = descriptor.value;
     const metricName = name || `${target.constructor.name}.${propertyKey}`;
 
-    descriptor.value = async function (...args: any[]) {
+    if (!originalMethod) return descriptor;
+
+    descriptor.value = async function (...args: unknown[]) {
       const monitor = Monitor.getInstance();
       monitor.startTimer(metricName);
-
       try {
         const result = await originalMethod.apply(this, args);
         monitor.endTimer(metricName, { status: 'success' });
@@ -281,38 +305,35 @@ export function monitored(name?: string) {
 }
 
 // Express middleware for request monitoring
-export function requestMonitoring() {
-  return (req: any, res: any, next: any) => {
+export function requestMonitoring(): RequestHandler {
+  return (req, res, next) => {
     const monitor = Monitor.getInstance();
     const start = Date.now();
 
     // Track request start
     monitor.incrementCounter('http.requests', 1, {
       method: req.method,
-      path: req.path,
+      path: (req as any).path || req.url,
     });
 
-    // Override res.end to capture response
-    const originalEnd = res.end;
-    res.end = function (...args: any[]) {
+    // Use 'finish' event to capture response timing and status safely
+    res.on('finish', () => {
       const duration = Date.now() - start;
+      const path = (req as any).path || req.url;
+      const status = String(res.statusCode);
 
-      // Record request duration
       monitor.recordHistogram('http.request.duration', duration, {
         method: req.method,
-        path: req.path,
-        status: res.statusCode.toString(),
+        path,
+        status,
       });
 
-      // Record response status
       monitor.incrementCounter('http.responses', 1, {
         method: req.method,
-        path: req.path,
-        status: res.statusCode.toString(),
+        path,
+        status,
       });
-
-      originalEnd.apply(res, args);
-    };
+    });
 
     next();
   };

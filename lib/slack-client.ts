@@ -2,6 +2,7 @@ import { WebClient, KnownBlock } from '@slack/web-api';
 import { installationRepo, channelRepo } from './db/repositories';
 import { Monitor, measureAsync } from './monitoring';
 import { channelCache, installationCache } from './cache';
+import type { Installation, Channel } from './db/schema';
 
 interface SlackMessage {
   channel: string;
@@ -17,7 +18,7 @@ const getSlackToken = async (teamId?: string): Promise<string> => {
   }
 
   // Try cache first
-  const cached = await installationCache.getInstallation(teamId);
+  const cached = await installationCache.getInstallation<Installation>(teamId);
   if (cached) {
     return cached.botToken;
   }
@@ -35,7 +36,7 @@ const getSlackToken = async (teamId?: string): Promise<string> => {
 
 const getDefaultChannel = async (teamId: string): Promise<string | null> => {
   // Try cache first
-  const cached = await channelCache.getChannel(teamId, 'default');
+  const cached = await channelCache.getChannel<Channel>(teamId, 'default');
   if (cached) {
     return cached.channelId;
   }

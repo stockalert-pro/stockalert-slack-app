@@ -26,6 +26,9 @@ interface NormalizedAlertData {
   company_name?: string;
   triggered_at?: string;
   // All other extended fields from the original event data
+  // Note: Formatter supports many optional numeric/string fields across alert types
+  // Using any here avoids excessive casting and maintains flexibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 

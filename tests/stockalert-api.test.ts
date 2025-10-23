@@ -94,13 +94,16 @@ describe('StockAlertAPI', () => {
 
       const result = await api.createWebhook(webhookData);
 
-      const [url, init] = mockFetch.mock.calls[0];
+      const firstCall = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(firstCall).toBeDefined();
+      const [url, init] = firstCall;
       expect(url).toBe(`${baseUrl}/webhooks`);
-      const headers = init?.headers as Headers;
+      const headersValue = init.headers ?? {};
+      const headers = new Headers(headersValue as Headers | string[][] | Record<string, string>);
       expectHeader(headers, 'Content-Type', 'application/json');
       expectHeader(headers, 'X-API-Key', apiKey);
       expectHeader(headers, 'Accept', 'application/json');
-      expect(init?.body).toBe(JSON.stringify(webhookData));
+      expect(init.body).toBe(JSON.stringify(webhookData));
 
       expect(result).toEqual(mockWebhookResponse);
     });
@@ -121,8 +124,10 @@ describe('StockAlertAPI', () => {
 
       await api.createWebhook(webhookWithoutEvents as CreateWebhookRequest);
 
-      const [, init] = mockFetch.mock.calls[0];
-      expect(init?.body).toBe(
+      const firstCall = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(firstCall).toBeDefined();
+      const [, init] = firstCall;
+      expect(init.body).toBe(
         JSON.stringify({
           url: webhookWithoutEvents.url,
           events: ['alert.triggered'],
@@ -152,8 +157,10 @@ describe('StockAlertAPI', () => {
       const result = await api.createWebhook(webhookData);
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockFetch.mock.calls[0][0]).toBe(`${baseUrl}/webhooks`);
-      expect(mockFetch.mock.calls[1][0]).toBe('https://api.test.com/api/v1/webhooks');
+      const firstCall = mockFetch.mock.calls[0] as [string];
+      const secondCall = mockFetch.mock.calls[1] as [string];
+      expect(firstCall?.[0]).toBe(`${baseUrl}/webhooks`);
+      expect(secondCall?.[0]).toBe('https://api.test.com/api/v1/webhooks');
       expect(result).toEqual(mockWebhookResponse);
     });
   });
@@ -234,9 +241,12 @@ describe('StockAlertAPI', () => {
 
       await expect(api.deleteWebhook(webhookId)).resolves.not.toThrow();
 
-      const [url, init] = mockFetch.mock.calls[0];
+      const firstCall = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(firstCall).toBeDefined();
+      const [url, init] = firstCall;
       expect(url).toBe(`${baseUrl}/webhooks/${webhookId}`);
-      const headers = init?.headers as Headers;
+      const headersValue = init.headers ?? {};
+      const headers = new Headers(headersValue as Headers | string[][] | Record<string, string>);
       expectHeader(headers, 'X-API-Key', apiKey);
     });
 

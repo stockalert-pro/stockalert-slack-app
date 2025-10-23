@@ -392,12 +392,13 @@ async function handleCommandWithMonitoring(
             },
           ],
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Failed to configure StockAlert webhook:', error);
 
+        const message = error instanceof Error ? error.message : String(error);
         return {
           response_type: 'ephemeral',
-          text: `❌ Failed to configure webhook: ${error.message}\n\nPlease check your API key and try again.`,
+          text: `❌ Failed to configure webhook: ${message}\n\nPlease check your API key and try again.`,
         };
       }
     }

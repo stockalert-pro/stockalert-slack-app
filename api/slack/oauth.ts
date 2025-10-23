@@ -25,7 +25,7 @@ export default async function handler(
 
   const { code, state, error } = req.query;
 
-  console.log('OAuth callback received:', {
+  console.warn('OAuth callback received:', {
     code: code ? 'present' : 'missing',
     state: state ? 'present' : 'missing',
     error: error ? 'present' : 'missing',
@@ -81,7 +81,7 @@ export default async function handler(
       tokenType: result.token_type || 'bot',
     });
 
-    console.log('Installation successful for team:', result.team.id);
+    console.warn('Installation successful for team:', result.team.id);
 
     // Start onboarding process
     try {

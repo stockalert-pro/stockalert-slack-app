@@ -602,7 +602,6 @@ async function sendTestWebhook(): Promise<void> {
     // Get webhook secret for the team if not provided
     let secret = WEBHOOK_SECRET;
     if (!secret) {
-      // eslint-disable-next-line no-console
       console.log(`Looking up webhook secret for team ${TEAM_ID}...`);
       const [installation] = await db
         .select()
@@ -621,7 +620,6 @@ async function sendTestWebhook(): Promise<void> {
         console.error('No webhook secret found for this team');
         process.exit(1);
       }
-      // eslint-disable-next-line no-console
       console.log('Found webhook secret for team');
     }
 
@@ -629,17 +627,11 @@ async function sendTestWebhook(): Promise<void> {
     const payloadString = JSON.stringify(payload);
     const signature = crypto.createHmac('sha256', secret).update(payloadString).digest('hex');
 
-    // eslint-disable-next-line no-console
     console.log('\n📨 Sending test webhook');
-    // eslint-disable-next-line no-console
     console.log('Alert Type:', alertType);
-    // eslint-disable-next-line no-console
     console.log('Webhook URL:', WEBHOOK_URL);
-    // eslint-disable-next-line no-console
     console.log('Team ID:', TEAM_ID);
-    // eslint-disable-next-line no-console
     console.log('\nPayload:', JSON.stringify(payload, null, 2));
-    // eslint-disable-next-line no-console
     console.log('\nSignature:', signature);
 
     const response = await fetch(WEBHOOK_URL, {
@@ -658,13 +650,10 @@ async function sendTestWebhook(): Promise<void> {
     });
 
     const responseText = await response.text();
-    // eslint-disable-next-line no-console
     console.log('\nResponse Status:', response.status);
-    // eslint-disable-next-line no-console
     console.log('Response:', responseText);
 
     if (response.ok) {
-      // eslint-disable-next-line no-console
       console.log('\n✅ Webhook sent successfully!');
     } else {
       console.error('\n❌ Webhook failed!');

@@ -7,6 +7,7 @@ import { StockAlertAPI, StockAlertAPIError } from '../../lib/stockalert-api';
 import type { NewInstallation } from '../../lib/db/schema';
 import { getWebhookUrl } from '../../lib/constants';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface SlackInteractivityPayload {
   type: string;
   team: { id: string; domain: string };
@@ -14,7 +15,7 @@ interface SlackInteractivityPayload {
   api_app_id: string;
   token: string;
   trigger_id?: string;
-  view?: any;
+  view?: { callback_id?: string; state?: any };
   actions?: Array<{
     action_id: string;
     block_id: string;
@@ -22,6 +23,12 @@ interface SlackInteractivityPayload {
     selected_channel?: string;
   }>;
 }
+
+const logDebug = (...args: [string, ...unknown[]]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(...args);
+  }
+};
 
 export const config = {
   api: {
@@ -46,7 +53,7 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ): Promise<VercelResponse> {
-  console.log('Interactivity endpoint called:', req.method);
+  logDebug('Interactivity endpoint called:', req.method);
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -60,7 +67,7 @@ export default async function handler(
     const timestamp = req.headers['x-slack-request-timestamp'] as string;
     const signature = req.headers['x-slack-signature'] as string;
 
-    console.log('Verifying Slack signature...');
+    logDebug('Verifying Slack signature...');
 
     if (
       !verifySlackSignature(process.env['SLACK_SIGNING_SECRET']!, signature, timestamp, rawBody)
@@ -74,7 +81,7 @@ export default async function handler(
       decodeURIComponent(rawBody).replace('payload=', '')
     );
 
-    console.log('Interaction payload:', {
+    logDebug('Interaction payload:', {
       type: payload.type,
       action: payload.actions?.[0]?.action_id,
       team: payload.team.id,
@@ -94,7 +101,7 @@ export default async function handler(
     if (payload.type === 'block_actions') {
       const action = payload.actions?.[0];
 
-      console.log('Handling action:', action?.action_id);
+      logDebug('Handling action:', action?.action_id);
 
       switch (action?.action_id) {
         case 'select_channel':
@@ -234,23 +241,23 @@ export default async function handler(
             const api = new StockAlertAPI(apiKey);
             const webhookUrl = getWebhookUrl(payload.team.id);
 
-            console.log('Looking for existing webhook with URL:', webhookUrl);
+            logDebug('Looking for existing webhook with URL:', webhookUrl);
             let webhook = await api.findWebhookByUrl(webhookUrl);
 
             if (!webhook) {
-              console.log('No existing webhook found, creating new one...');
+              logDebug('No existing webhook found, creating new one...');
               webhook = await api.createWebhook({
                 url: webhookUrl,
                 events: ['alert.triggered'],
               });
-              console.log('Webhook created successfully:', webhook.id);
+              logDebug('Webhook created successfully:', webhook.id);
             } else if (webhook.is_active === false) {
               // Reactivate existing webhook
-              console.log('Found inactive webhook:', webhook.id);
+              logDebug('Found inactive webhook:', webhook.id);
               // TODO: Add updateWebhook method to API client
               // For now, we'll use the existing webhook even if inactive
             } else {
-              console.log('Using existing active webhook:', webhook.id);
+              logDebug('Using existing active webhook:', webhook.id);
             }
 
             // Save to database, preserving existing secret if API does not return it

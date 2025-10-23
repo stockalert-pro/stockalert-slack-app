@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import express from 'express';
 import { createServer } from 'http';
 import path from 'path';
@@ -110,13 +111,13 @@ const metricsInterval = startMetricsCollection(60000); // Collect every minute
 
 // Graceful shutdown
 const shutdown = () => {
-  console.log('Shutting down gracefully...');
+  console.warn('Shutting down gracefully...');
 
   // Stop metrics collection
   clearInterval(metricsInterval);
 
   server.close(() => {
-    console.log('Server closed');
+    console.warn('Server closed');
     process.exit(0);
   });
 
@@ -132,8 +133,8 @@ process.on('SIGINT', shutdown);
 
 // Start server
 server.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-  console.log(`Health check available at http://localhost:${port}/api/health`);
-  console.log(`Detailed health check: http://localhost:${port}/api/health?detailed=true`);
-  console.log('Performance monitoring enabled');
+  console.warn(`Server running on port ${port}`);
+  console.warn(`Health check available at http://localhost:${port}/api/health`);
+  console.warn(`Detailed health check: http://localhost:${port}/api/health?detailed=true`);
+  console.warn('Performance monitoring enabled');
 });

@@ -2,8 +2,13 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 import { kv } from '@vercel/kv';
 import { setSecurityHeaders } from '../lib/security-headers';
-import { Monitor } from '../lib/monitoring';
-import { Cache } from '../lib/cache';
+import { Monitor, type MetricsSummary } from '../lib/monitoring';
+import { Cache, type CacheStats } from '../lib/cache';
+
+interface SlackAuthTestResponse {
+  ok: boolean;
+  error?: string;
+}
 
 interface HealthCheckResponse {
   status: 'ok' | 'degraded' | 'error';
@@ -21,8 +26,8 @@ interface HealthCheckResponse {
       heapTotal: number;
       rss: number;
     };
-    cache?: any;
-    monitoring?: any;
+    cache?: CacheStats;
+    monitoring?: MetricsSummary;
   };
   errors?: string[];
 }
@@ -115,11 +120,11 @@ export default async function handler(
         },
       }).then((res) => res.json());
 
-      const result = (await Promise.race([slackCheck, slackTimeout])) as any;
-      health.checks.slack = result?.ok === true;
+      const result = (await Promise.race([slackCheck, slackTimeout])) as SlackAuthTestResponse;
+      health.checks.slack = result.ok === true;
 
-      if (!result?.ok) {
-        errors.push(`Slack API: ${result?.error || 'Unknown error'}`);
+      if (!result.ok) {
+        errors.push(`Slack API: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown Slack error';
@@ -134,7 +139,14 @@ export default async function handler(
   }
 
   // Include detailed metrics if requested
-  if (req.query.detailed === 'true') {
+  const detailed =
+    typeof req.query.detailed === 'string'
+      ? req.query.detailed === 'true'
+      : Array.isArray(req.query.detailed)
+        ? req.query.detailed.includes('true')
+        : false;
+
+  if (detailed) {
     // Memory metrics
     const memUsage = process.memoryUsage();
     health.metrics = {

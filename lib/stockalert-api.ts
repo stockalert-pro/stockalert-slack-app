@@ -31,7 +31,7 @@ export interface WebhookResponse {
   updated_at?: string;
   last_triggered_at?: string | null;
   failure_count?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WebhookListResponse {
@@ -69,7 +69,7 @@ export class StockAlertAPI {
     this.apiKey = apiKey;
     const rawBase = baseUrl || process.env['STOCKALERT_API_URL'] || DEFAULT_BASE_URL;
     this.baseUrls = StockAlertAPI.buildBaseUrlCandidates(rawBase);
-    console.log('StockAlertAPI base URL candidates:', this.baseUrls);
+    console.warn('StockAlertAPI base URL candidates:', this.baseUrls);
   }
 
   /**
@@ -86,7 +86,7 @@ export class StockAlertAPI {
       body.secret = data.secret;
     }
 
-    console.log('Creating webhook with payload:', {
+    console.warn('Creating webhook with payload:', {
       url: data.url,
       events,
       secretProvided: Boolean(data.secret),
@@ -114,7 +114,7 @@ export class StockAlertAPI {
         data: { ...(result.data as Record<string, unknown>), secret: 'whsec_***' },
       };
     }
-    console.log('Webhook creation response from', baseUrlUsed, masked);
+    console.warn('Webhook creation response from', baseUrlUsed, masked);
 
     // Handle different response formats - API might return the webhook directly or wrapped
     if (
@@ -136,7 +136,7 @@ export class StockAlertAPI {
       method: 'GET',
     });
     const responseData = data as unknown;
-    console.log('Webhook API response from', baseUrlUsed, responseData);
+    console.warn('Webhook API response from', baseUrlUsed, responseData);
 
     // Handle different response formats - API might return {webhooks: [...]} or {data: [...]}
     if (Array.isArray(responseData)) {
@@ -177,7 +177,7 @@ export class StockAlertAPI {
       throw new Error('Webhook URL and secret are required');
     }
 
-    console.log('Sending webhook test to:', data.url);
+    console.warn('Sending webhook test to:', data.url);
 
     const { data: result, baseUrlUsed } = await this.request('/webhooks/test', {
       method: 'POST',
@@ -190,7 +190,7 @@ export class StockAlertAPI {
       }),
     });
 
-    console.log('Webhook test API response from', baseUrlUsed, result);
+    console.warn('Webhook test API response from', baseUrlUsed, result);
 
     const extractPayload = (payload: unknown): WebhookTestResponse | null => {
       if (!payload || typeof payload !== 'object') {
@@ -267,7 +267,7 @@ export class StockAlertAPI {
     const requestBody = init.body;
 
     for (let i = 0; i < candidates.length; i++) {
-      const base = candidates[i];
+      const base = candidates[i]!;
       const url = `${base}${path}`;
 
       try {
@@ -280,8 +280,9 @@ export class StockAlertAPI {
             i < candidates.length - 1 && this.shouldRetryWithFallback(response.status, text);
 
           const summary = this.summarizeErrorText(response.status, text);
+          const method = init.method ?? 'GET';
           const error = new StockAlertAPIError(
-            `Failed to ${init.method ?? 'GET'} ${path}: ${summary}`,
+            `Failed to ${method} ${path}: ${summary}`,
             response.status,
             text
           );
@@ -323,8 +324,9 @@ export class StockAlertAPI {
         if (i === candidates.length - 1) {
           throw error;
         }
+        const nextBase = candidates[i + 1] ?? base;
         console.warn(
-          `StockAlertAPI: ${error instanceof Error ? error.message : String(error)} (base ${base}). Trying fallback base URL: ${candidates[i + 1]}`
+          `StockAlertAPI: ${error instanceof Error ? error.message : String(error)} (base ${base}). Trying fallback base URL: ${nextBase}`
         );
       }
     }
@@ -334,8 +336,27 @@ export class StockAlertAPI {
       : new Error('Failed to communicate with StockAlert API');
   }
 
-  private buildHeaders(headers?: HeadersInit): Headers {
-    const merged = new Headers(headers || {});
+  private buildHeaders(headers?: unknown): Headers {
+    const merged = new Headers();
+    if (headers) {
+      if (headers instanceof Headers) {
+        headers.forEach((value, key) => merged.set(key, value));
+      } else if (Array.isArray(headers)) {
+        for (const tuple of headers as Array<string[]>) {
+          if (Array.isArray(tuple) && tuple.length >= 2) {
+            merged.set(String(tuple[0]), String(tuple[1]));
+          }
+        }
+      } else if (typeof headers === 'object') {
+        for (const [key, value] of Object.entries(headers as Record<string, unknown>)) {
+          if (Array.isArray(value)) {
+            merged.set(key, value.map((v) => String(v)).join(', '));
+          } else if (value !== undefined && value !== null) {
+            merged.set(key, String(value));
+          }
+        }
+      }
+    }
     merged.set('X-API-Key', this.apiKey);
     if (!merged.has('Accept')) {
       merged.set('Accept', 'application/json');

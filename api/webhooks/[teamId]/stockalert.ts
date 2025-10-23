@@ -7,6 +7,7 @@ import { webhookEventRepo, installationRepo } from '../../../lib/db/repositories
 import { z } from 'zod';
 import { Monitor, measureAsync } from '../../../lib/monitoring';
 import { installationCache } from '../../../lib/cache';
+import type { Installation } from '../../../lib/db/schema';
 
 export const config = {
   api: {
@@ -36,7 +37,7 @@ export default async function handler(
   const teamId = (req.query.teamId as string) || '';
 
   // Log all webhook requests
-  console.log(`Webhook ${req.method} request for team ${teamId}`, {
+  console.warn(`Webhook ${req.method} request for team ${teamId}`, {
     headers: req.headers['user-agent'],
     referer: req.headers['referer'],
     origin: req.headers['origin'],
@@ -86,7 +87,7 @@ export default async function handler(
       'webhook.getInstallation',
       async () => {
         // Try cache first
-        const cached = await installationCache.getInstallation(teamId);
+        const cached = await installationCache.getInstallation<Installation>(teamId);
         if (cached) {
           monitor.incrementCounter('webhook.cache.hits', 1, { type: 'installation' });
           return cached;
@@ -127,7 +128,7 @@ export default async function handler(
     const timestampHeader = req.headers['x-stockalert-timestamp'];
 
     // Debug logging with v1 API headers
-    console.log('Webhook headers (v1 API):', {
+    console.warn('Webhook headers (v1 API):', {
       'x-stockalert-signature': req.headers['x-stockalert-signature'],
       'x-stockalert-event': eventHeader,
       'x-stockalert-timestamp': timestampHeader,
@@ -143,7 +144,7 @@ export default async function handler(
     }
 
     // Log webhook receipt with full data for debugging (v1 API structure)
-    console.log(`Webhook received for team ${teamId}:`, {
+    console.warn(`Webhook received for team ${teamId}:`, {
       event: body.event,
       timestamp: body.timestamp,
       // v1 API nested structure
@@ -213,14 +214,14 @@ export default async function handler(
           eventId: eventId,
           teamId: teamId,
           eventType: event.event,
-          payload: event as any,
+          payload: event as unknown,
         }),
       { team: teamId }
     );
 
     // If this is a duplicate event, return success without processing
     if (!webhookEvent) {
-      console.log(`Duplicate event ${eventId} for team ${teamId}, skipping`);
+      console.warn(`Duplicate event ${eventId} for team ${teamId}, skipping`);
       return res.status(200).json({ success: true, duplicate: true });
     }
 
