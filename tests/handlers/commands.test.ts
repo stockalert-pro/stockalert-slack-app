@@ -213,7 +213,7 @@ describe('handleSlashCommand', () => {
 
       expect(response.response_type).toBe('ephemeral');
       expect(response.text).toContain('Unable to send test alert');
-      expect(response.text).toContain('Internal error');
+      expect(response.text).toContain('API failure');
     });
   });
 

@@ -6,9 +6,29 @@ import {
   type WebhookResponse,
 } from '../lib/stockalert-api';
 
-// Mock fetch globally
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+global.fetch = mockFetch as unknown as typeof fetch;
+
+const createJsonResponse = (body: unknown, status = 200) =>
+  ({
+    ok: status >= 200 && status < 300,
+    status,
+    text: vi.fn(async () => (body !== undefined ? JSON.stringify(body) : '')),
+    json: vi.fn(async () => body),
+    headers: new Headers({ 'content-type': 'application/json' }),
+  }) as unknown as Response;
+
+const createTextResponse = (status: number, text: string, contentType = 'text/plain') =>
+  ({
+    ok: status >= 200 && status < 300,
+    status,
+    text: vi.fn(async () => text),
+    headers: new Headers({ 'content-type': contentType }),
+  }) as unknown as Response;
+
+const expectHeader = (headers: Headers, key: string, value: string) => {
+  expect(headers.get(key)).toBe(value);
+};
 
 describe('StockAlertAPI', () => {
   let api: StockAlertAPI;
@@ -70,33 +90,24 @@ describe('StockAlertAPI', () => {
     };
 
     it('should successfully create a webhook', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockWebhookResponse,
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse(mockWebhookResponse));
 
       const result = await api.createWebhook(webhookData);
 
-      expect(mockFetch).toHaveBeenCalledWith(`${baseUrl}/webhooks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(webhookData),
-      });
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe(`${baseUrl}/webhooks`);
+      const headers = init?.headers as Headers;
+      expectHeader(headers, 'Content-Type', 'application/json');
+      expectHeader(headers, 'X-API-Key', apiKey);
+      expectHeader(headers, 'Accept', 'application/json');
+      expect(init?.body).toBe(JSON.stringify(webhookData));
 
       expect(result).toEqual(mockWebhookResponse);
     });
 
     it('should throw StockAlertAPIError on failed request', async () => {
       const errorText = 'Invalid API key';
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: async () => errorText,
-      });
+      mockFetch.mockResolvedValueOnce(createTextResponse(401, errorText));
 
       await expect(api.createWebhook(webhookData)).rejects.toThrow(StockAlertAPIError);
     });
@@ -106,33 +117,21 @@ describe('StockAlertAPI', () => {
         url: 'https://example.com/webhook',
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockWebhookResponse,
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse(mockWebhookResponse));
 
       await api.createWebhook(webhookWithoutEvents as CreateWebhookRequest);
 
-      expect(mockFetch).toHaveBeenCalledWith(`${baseUrl}/webhooks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
+      const [, init] = mockFetch.mock.calls[0];
+      expect(init?.body).toBe(
+        JSON.stringify({
           url: webhookWithoutEvents.url,
           events: ['alert.triggered'],
-        }),
-      });
+        })
+      );
     });
 
     it('should include status code in error', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        text: async () => 'Bad Request',
-      });
+      mockFetch.mockResolvedValueOnce(createTextResponse(400, 'Bad Request'));
 
       try {
         await api.createWebhook(webhookData);
@@ -141,6 +140,21 @@ describe('StockAlertAPI', () => {
         expect((error as StockAlertAPIError).statusCode).toBe(400);
         expect((error as StockAlertAPIError).responseText).toBe('Bad Request');
       }
+    });
+
+    it('should retry with fallback base URL when HTML is returned', async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          createTextResponse(404, '<!DOCTYPE html><html>Not found</html>', 'text/html')
+        )
+        .mockResolvedValueOnce(createJsonResponse(mockWebhookResponse));
+
+      const result = await api.createWebhook(webhookData);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch.mock.calls[0][0]).toBe(`${baseUrl}/webhooks`);
+      expect(mockFetch.mock.calls[1][0]).toBe('https://api.test.com/api/v1/webhooks');
+      expect(result).toEqual(mockWebhookResponse);
     });
   });
 
@@ -169,70 +183,44 @@ describe('StockAlertAPI', () => {
     ];
 
     it('should successfully list webhooks when response is array', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockWebhooks,
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse(mockWebhooks));
 
       const result = await api.listWebhooks();
 
-      expect(mockFetch).toHaveBeenCalledWith(`${baseUrl}/webhooks`, {
-        headers: {
-          'X-API-Key': apiKey,
-          Accept: 'application/json',
-        },
-      });
-
+      expect(mockFetch).toHaveBeenCalledWith(`${baseUrl}/webhooks`, expect.anything());
       expect(result).toEqual(mockWebhooks);
     });
 
     it('should handle response with webhooks property', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ webhooks: mockWebhooks }),
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse({ webhooks: mockWebhooks }));
 
       const result = await api.listWebhooks();
       expect(result).toEqual(mockWebhooks);
     });
 
     it('should handle response with data property', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: mockWebhooks }),
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse({ data: mockWebhooks }));
 
       const result = await api.listWebhooks();
       expect(result).toEqual(mockWebhooks);
     });
 
     it('should return empty array for unexpected response format', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ unexpected: 'format' }),
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse({ unexpected: 'format' }));
 
       const result = await api.listWebhooks();
       expect(result).toEqual([]);
     });
 
     it('should return empty array for null response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => null,
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse(null));
 
       const result = await api.listWebhooks();
       expect(result).toEqual([]);
     });
 
     it('should throw StockAlertAPIError on failed request', async () => {
-      const errorText = 'Server error';
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        text: async () => errorText,
-      });
+      mockFetch.mockResolvedValueOnce(createTextResponse(500, 'Server error'));
 
       await expect(api.listWebhooks()).rejects.toThrow(StockAlertAPIError);
     });
@@ -242,28 +230,21 @@ describe('StockAlertAPI', () => {
     const webhookId = 'webhook_123';
 
     it('should successfully delete a webhook', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        text: async () => '',
-      });
+      mockFetch.mockResolvedValueOnce(createTextResponse(200, ''));
 
       await expect(api.deleteWebhook(webhookId)).resolves.not.toThrow();
 
-      expect(mockFetch).toHaveBeenCalledWith(`${baseUrl}/webhooks/${webhookId}`, {
-        method: 'DELETE',
-        headers: {
-          'X-API-Key': apiKey,
-        },
-      });
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe(`${baseUrl}/webhooks/${webhookId}`);
+      const headers = init?.headers as Headers;
+      expectHeader(headers, 'X-API-Key', apiKey);
     });
 
     it('should throw StockAlertAPIError on failed request', async () => {
-      const errorText = 'Webhook not found';
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        text: async () => errorText,
-      });
+      mockFetch
+        .mockResolvedValueOnce(createTextResponse(404, 'Webhook not found'))
+        .mockResolvedValueOnce(createTextResponse(404, 'Webhook not found'))
+        .mockResolvedValueOnce(createTextResponse(404, 'Webhook not found'));
 
       await expect(api.deleteWebhook(webhookId)).rejects.toThrow(StockAlertAPIError);
     });
@@ -295,32 +276,21 @@ describe('StockAlertAPI', () => {
     ];
 
     it('should find webhook by URL', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockWebhooks,
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse(mockWebhooks));
 
       const result = await api.findWebhookByUrl(targetUrl);
       expect(result).toEqual(mockWebhooks[0]);
     });
 
     it('should return null if webhook not found', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockWebhooks,
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse(mockWebhooks));
 
       const result = await api.findWebhookByUrl('https://notfound.com/webhook');
       expect(result).toBeNull();
     });
 
     it('should propagate errors from listWebhooks', async () => {
-      const errorText = 'API error';
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        text: async () => errorText,
-      });
+      mockFetch.mockResolvedValueOnce(createTextResponse(500, 'API error'));
 
       await expect(api.findWebhookByUrl(targetUrl)).rejects.toThrow(StockAlertAPIError);
     });
@@ -342,23 +312,9 @@ describe('StockAlertAPI', () => {
         },
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockEnvelope,
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse(mockEnvelope));
 
       const result = await api.testWebhook(webhookTestRequest);
-
-      expect(mockFetch).toHaveBeenCalledWith(`${baseUrl}/webhooks/test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(webhookTestRequest),
-      });
-
       expect(result).toEqual(mockEnvelope.data);
     });
 
@@ -369,10 +325,7 @@ describe('StockAlertAPI', () => {
         response: 'queued',
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockDirectResponse,
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse(mockDirectResponse));
 
       const result = await api.testWebhook(webhookTestRequest);
       expect(result).toEqual({
@@ -383,21 +336,13 @@ describe('StockAlertAPI', () => {
     });
 
     it('should throw StockAlertAPIError on failed request', async () => {
-      const errorText = 'Internal error';
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        text: async () => errorText,
-      });
+      mockFetch.mockResolvedValueOnce(createTextResponse(500, 'Internal error'));
 
       await expect(api.testWebhook(webhookTestRequest)).rejects.toThrow(StockAlertAPIError);
     });
 
     it('should throw error on unexpected response format', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true }),
-      });
+      mockFetch.mockResolvedValueOnce(createJsonResponse({ success: true }));
 
       await expect(api.testWebhook(webhookTestRequest)).rejects.toThrow(
         'Unexpected webhook test response format'

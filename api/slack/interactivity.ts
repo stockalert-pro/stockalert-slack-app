@@ -156,7 +156,7 @@ export default async function handler(
 
               let reason = 'Unknown error';
               if (error instanceof StockAlertAPIError) {
-                reason = error.responseText || error.message;
+                reason = error.message;
               } else if (error instanceof Error) {
                 reason = error.message;
               }
