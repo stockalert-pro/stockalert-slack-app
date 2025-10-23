@@ -36,7 +36,7 @@ interface NormalizedAlertData {
 function normalizeEventData(event: AlertEvent): NormalizedAlertData {
   const { alert, stock, ...extendedFields } = event.data;
 
-  return {
+  const normalized: NormalizedAlertData = {
     alert_id: alert.id,
     symbol: alert.symbol,
     condition: alert.condition,
@@ -45,6 +45,34 @@ function normalizeEventData(event: AlertEvent): NormalizedAlertData {
     price: stock.price,
     ...extendedFields, // Spread extended fields (company_name, volume, etc.)
   };
+
+  // Map snake_case aliases to historical camelCase properties for compatibility
+  const aliasMap: Record<string, string[]> = {
+    ma50: ['ma_50'],
+    ma200: ['ma_200'],
+    ma: ['ma_value'],
+    ma_short: ['ma_short_value'],
+    ma_long: ['ma_long_value'],
+    price_change_percentage: ['price_change_percent'],
+    volume_change_percentage: ['volume_change_percent'],
+    previous_close: ['prev_close'],
+  };
+
+  for (const [target, sources] of Object.entries(aliasMap)) {
+    if (normalized[target] === undefined) {
+      for (const source of sources) {
+        if (Object.prototype.hasOwnProperty.call(extendedFields, source)) {
+          const value = (extendedFields as Record<string, unknown>)[source];
+          if (value !== undefined) {
+            normalized[target] = value;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return normalized;
 }
 
 // Color constants for Slack formatting (kept for future use)

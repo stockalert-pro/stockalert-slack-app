@@ -13,10 +13,12 @@ function hasProperty<T extends object, K extends PropertyKey>(
 export interface CreateWebhookRequest {
   url: string;
   events?: string[];
+  secret?: string;
 }
 
 export interface WebhookResponse {
   id: string;
+  user_id?: string;
   name?: string;
   url: string;
   secret?: string; // Only returned on creation
@@ -33,6 +35,17 @@ export interface WebhookResponse {
 export interface WebhookListResponse {
   webhooks?: WebhookResponse[];
   data?: WebhookResponse[];
+}
+
+export interface WebhookTestRequest {
+  url: string;
+  secret: string;
+}
+
+export interface WebhookTestResponse {
+  status: number;
+  status_text: string;
+  response: string;
 }
 
 export class StockAlertAPIError extends Error {
@@ -61,12 +74,21 @@ export class StockAlertAPI {
    */
   async createWebhook(data: CreateWebhookRequest): Promise<WebhookResponse> {
     const url = `${this.baseUrl}/webhooks`;
-    console.log('Creating webhook at:', url, data);
-
-    const body: CreateWebhookRequest = {
+    const events = data.events && data.events.length > 0 ? data.events : ['alert.triggered'];
+    const body: Record<string, unknown> = {
       url: data.url,
-      events: data.events,
+      events,
     };
+
+    if (data.secret) {
+      body.secret = data.secret;
+    }
+
+    console.log('Creating webhook at:', url, {
+      url: data.url,
+      events,
+      secretProvided: Boolean(data.secret),
+    });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -181,6 +203,101 @@ export class StockAlertAPI {
         errorText
       );
     }
+  }
+
+  /**
+   * Send a test event to the StockAlert webhook
+   */
+  async testWebhook(data: WebhookTestRequest): Promise<WebhookTestResponse> {
+    if (!data.url || !data.secret) {
+      throw new Error('Webhook URL and secret are required');
+    }
+
+    const url = `${this.baseUrl}/webhooks/test`;
+
+    console.log('Sending webhook test to:', data.url);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey,
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        url: data.url,
+        secret: data.secret,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Webhook test error:', { status: response.status, error: errorText });
+      throw new StockAlertAPIError(
+        `Failed to send webhook test: ${errorText}`,
+        response.status,
+        errorText
+      );
+    }
+
+    let result: unknown;
+    try {
+      result = await response.json();
+    } catch {
+      result = null;
+    }
+
+    console.log('Webhook test API response:', result);
+
+    const extractPayload = (payload: unknown): WebhookTestResponse | null => {
+      if (!payload || typeof payload !== 'object') {
+        return null;
+      }
+
+      const status =
+        (payload as Record<string, unknown>).status ??
+        (payload as Record<string, unknown>).status_code;
+      const statusText =
+        (payload as Record<string, unknown>).status_text ??
+        (payload as Record<string, unknown>).statusText;
+      const responseText = (payload as Record<string, unknown>).response;
+
+      if (typeof status !== 'number' && typeof status !== 'string') {
+        return null;
+      }
+
+      const statusNumber = typeof status === 'number' ? status : Number(status);
+      if (Number.isNaN(statusNumber)) {
+        return null;
+      }
+
+      return {
+        status: statusNumber,
+        status_text: typeof statusText === 'string' ? statusText : '',
+        response:
+          typeof responseText === 'string'
+            ? responseText
+            : responseText !== undefined
+              ? JSON.stringify(responseText)
+              : '',
+      };
+    };
+
+    if (result && typeof result === 'object') {
+      if (hasProperty(result, 'data')) {
+        const payload = extractPayload(result.data);
+        if (payload) {
+          return payload;
+        }
+      }
+
+      const payload = extractPayload(result);
+      if (payload) {
+        return payload;
+      }
+    }
+
+    throw new Error('Unexpected webhook test response format');
   }
 
   /**

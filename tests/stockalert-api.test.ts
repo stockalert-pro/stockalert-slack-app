@@ -101,6 +101,32 @@ describe('StockAlertAPI', () => {
       await expect(api.createWebhook(webhookData)).rejects.toThrow(StockAlertAPIError);
     });
 
+    it('should default events when not provided', async () => {
+      const webhookWithoutEvents = {
+        url: 'https://example.com/webhook',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockWebhookResponse,
+      });
+
+      await api.createWebhook(webhookWithoutEvents as CreateWebhookRequest);
+
+      expect(mockFetch).toHaveBeenCalledWith(`${baseUrl}/webhooks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          url: webhookWithoutEvents.url,
+          events: ['alert.triggered'],
+        }),
+      });
+    });
+
     it('should include status code in error', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -297,6 +323,85 @@ describe('StockAlertAPI', () => {
       });
 
       await expect(api.findWebhookByUrl(targetUrl)).rejects.toThrow(StockAlertAPIError);
+    });
+  });
+
+  describe('testWebhook', () => {
+    const webhookTestRequest = {
+      url: 'https://example.com/webhook',
+      secret: 'whsec_test_secret',
+    };
+
+    it('should send a webhook test and return payload from envelope', async () => {
+      const mockEnvelope = {
+        success: true,
+        data: {
+          status: 200,
+          status_text: 'OK',
+          response: 'ok',
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockEnvelope,
+      });
+
+      const result = await api.testWebhook(webhookTestRequest);
+
+      expect(mockFetch).toHaveBeenCalledWith(`${baseUrl}/webhooks/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(webhookTestRequest),
+      });
+
+      expect(result).toEqual(mockEnvelope.data);
+    });
+
+    it('should normalize direct response format', async () => {
+      const mockDirectResponse = {
+        status: 202,
+        statusText: 'Accepted',
+        response: 'queued',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockDirectResponse,
+      });
+
+      const result = await api.testWebhook(webhookTestRequest);
+      expect(result).toEqual({
+        status: 202,
+        status_text: 'Accepted',
+        response: 'queued',
+      });
+    });
+
+    it('should throw StockAlertAPIError on failed request', async () => {
+      const errorText = 'Internal error';
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: async () => errorText,
+      });
+
+      await expect(api.testWebhook(webhookTestRequest)).rejects.toThrow(StockAlertAPIError);
+    });
+
+    it('should throw error on unexpected response format', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      await expect(api.testWebhook(webhookTestRequest)).rejects.toThrow(
+        'Unexpected webhook test response format'
+      );
     });
   });
 });

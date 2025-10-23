@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { handleSlashCommand, type SlashCommand } from '../../lib/handlers/commands';
 import { channelRepo, installationRepo } from '../../lib/db/repositories';
 import { getWebhookUrl } from '../../lib/constants';
-import { StockAlertAPI } from '../../lib/stockalert-api';
+import { StockAlertAPI, StockAlertAPIError } from '../../lib/stockalert-api';
 
 // Mock dependencies
 vi.mock('../../lib/db/repositories', () => ({
@@ -23,6 +23,17 @@ vi.mock('../../lib/constants', () => ({
 
 vi.mock('../../lib/stockalert-api', () => ({
   StockAlertAPI: vi.fn(),
+  StockAlertAPIError: class MockStockAlertAPIError extends Error {
+    statusCode: number;
+    responseText?: string;
+
+    constructor(message: string, statusCode = 500, responseText?: string) {
+      super(message);
+      this.name = 'StockAlertAPIError';
+      this.statusCode = statusCode;
+      this.responseText = responseText;
+    }
+  },
 }));
 
 vi.mock('../../lib/onboarding', () => ({
@@ -122,28 +133,87 @@ describe('handleSlashCommand', () => {
   });
 
   describe('test command', () => {
-    it('should send test message to channel', async () => {
+    it('should trigger webhook test when integration is configured', async () => {
+      const mockInstallation = {
+        teamId: 'T123456',
+        stockalertApiKey: 'sk_test_key',
+        stockalertWebhookSecret: 'whsec_test_secret',
+      };
+      (installationRepo.findByTeamId as any).mockResolvedValue(mockInstallation);
+
+      const mockApi = {
+        testWebhook: vi.fn().mockResolvedValue({
+          status: 200,
+          status_text: 'OK',
+          response: 'ok',
+        }),
+      };
+      (StockAlertAPI as any).mockImplementation(() => mockApi);
+
       const command = { ...baseCommand, text: 'test' };
       const response = await handleSlashCommand(command);
 
-      expect(response.response_type).toBe('in_channel');
-      expect(response.blocks).toHaveLength(2);
+      expect(StockAlertAPI).toHaveBeenCalledWith('sk_test_key');
+      expect(mockApi.testWebhook).toHaveBeenCalledWith({
+        url: 'https://example.com/webhooks/T123456/stockalert',
+        secret: 'whsec_test_secret',
+      });
+
+      expect(response.response_type).toBe('ephemeral');
       expect(response.blocks?.[0]).toMatchObject({
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: expect.stringContaining('✅ *StockAlert.pro Test Message*'),
+          text: expect.stringContaining('✅ *Test alert sent!*'),
         },
       });
-      expect(response.blocks?.[1]).toMatchObject({
-        type: 'context',
-        elements: [
-          {
-            type: 'mrkdwn',
-            text: expect.stringContaining(`<@${command.user_id}>`),
-          },
-        ],
-      });
+    });
+
+    it('should prompt connection when API key missing', async () => {
+      (installationRepo.findByTeamId as any).mockResolvedValue(null);
+
+      const command = { ...baseCommand, text: 'test' };
+      const response = await handleSlashCommand(command);
+
+      expect(response.response_type).toBe('ephemeral');
+      expect(response.text).toContain('not connected');
+    });
+
+    it('should request reconnection when webhook secret is missing', async () => {
+      const mockInstallation = {
+        teamId: 'T123456',
+        stockalertApiKey: 'sk_test_key',
+        stockalertWebhookSecret: undefined,
+      };
+      (installationRepo.findByTeamId as any).mockResolvedValue(mockInstallation);
+
+      const command = { ...baseCommand, text: 'test' };
+      const response = await handleSlashCommand(command);
+
+      expect(response.response_type).toBe('ephemeral');
+      expect(response.text).toContain('Missing webhook secret');
+    });
+
+    it('should surface API errors gracefully', async () => {
+      const mockInstallation = {
+        teamId: 'T123456',
+        stockalertApiKey: 'sk_test_key',
+        stockalertWebhookSecret: 'whsec_test_secret',
+      };
+      (installationRepo.findByTeamId as any).mockResolvedValue(mockInstallation);
+
+      const error = new StockAlertAPIError('API failure', 500, 'Internal error');
+      const mockApi = {
+        testWebhook: vi.fn().mockRejectedValue(error),
+      };
+      (StockAlertAPI as any).mockImplementation(() => mockApi);
+
+      const command = { ...baseCommand, text: 'test' };
+      const response = await handleSlashCommand(command);
+
+      expect(response.response_type).toBe('ephemeral');
+      expect(response.text).toContain('Unable to send test alert');
+      expect(response.text).toContain('Internal error');
     });
   });
 
@@ -289,6 +359,35 @@ describe('handleSlashCommand', () => {
           type: 'mrkdwn',
           text: '✅ *StockAlert.pro Integration Complete!*',
         },
+      });
+
+      expect(installationRepo.update).toHaveBeenCalledWith('T123456', {
+        stockalertApiKey: 'sk_test_key',
+        stockalertWebhookId: 'webhook_existing',
+        stockalertWebhookSecret: 'webhook_secret',
+      });
+    });
+
+    it('should keep existing secret when API omits it', async () => {
+      const mockWebhook = {
+        id: 'webhook_existing',
+        url: 'https://example.com/webhooks/T123456/stockalert',
+      };
+
+      const mockApi = {
+        findWebhookByUrl: vi.fn().mockResolvedValue(mockWebhook),
+        createWebhook: vi.fn(),
+      };
+
+      (StockAlertAPI as any).mockImplementation(() => mockApi);
+      (installationRepo.update as any).mockResolvedValue(true);
+
+      const command = { ...baseCommand, text: 'apikey sk_test_key' };
+      await handleSlashCommand(command);
+
+      expect(installationRepo.update).toHaveBeenCalledWith('T123456', {
+        stockalertApiKey: 'sk_test_key',
+        stockalertWebhookId: 'webhook_existing',
       });
     });
 

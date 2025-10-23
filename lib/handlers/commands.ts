@@ -1,4 +1,5 @@
 import { channelRepo, installationRepo } from '../db/repositories';
+import type { NewInstallation } from '../db/schema';
 import { getWebhookUrl } from '../constants';
 import { Block, KnownBlock } from '@slack/web-api';
 import { Monitor } from '../monitoring';
@@ -141,27 +142,80 @@ async function handleCommandWithMonitoring(
     }
 
     case 'test': {
-      return {
-        response_type: 'in_channel',
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: '✅ *StockAlert.pro Test Message*\n\nYour Slack integration is working correctly! You will receive real-time alerts here when your stock alerts trigger.',
-            },
-          },
-          {
-            type: 'context',
-            elements: [
-              {
+      const installation = await installationRepo.findByTeamId(command.team_id);
+
+      if (!installation || !installation.stockalertApiKey) {
+        return {
+          response_type: 'ephemeral',
+          text:
+            '❌ StockAlert.pro is not connected yet.\n' +
+            'Run `/stockalert apikey <your-api-key>` to connect your account before sending a test alert.',
+        };
+      }
+
+      const webhookSecret = installation.stockalertWebhookSecret?.trim();
+      if (!webhookSecret) {
+        return {
+          response_type: 'ephemeral',
+          text: '❌ Missing webhook secret. Please reconnect your API key with `/stockalert apikey <your-api-key>` to refresh the webhook credentials.',
+        };
+      }
+
+      const { StockAlertAPI, StockAlertAPIError } = await import('../stockalert-api');
+
+      try {
+        const api = new StockAlertAPI(installation.stockalertApiKey);
+        const webhookUrl = getWebhookUrl(command.team_id);
+        const result = await api.testWebhook({
+          url: webhookUrl,
+          secret: webhookSecret,
+        });
+
+        const statusLine = result.status_text
+          ? `HTTP ${result.status} ${result.status_text}`
+          : `HTTP ${result.status}`;
+        const responseDetail = result.response ? `\n• Response: \`${result.response}\`` : '';
+
+        return {
+          response_type: 'ephemeral',
+          blocks: [
+            {
+              type: 'section',
+              text: {
                 type: 'mrkdwn',
-                text: `Test requested by <@${command.user_id}> at ${new Date().toLocaleString()}`,
+                text:
+                  '✅ *Test alert sent!*\n' +
+                  `Webhook responded with \`${statusLine}\`.\n` +
+                  'A live alert was just dispatched to your configured StockAlert channel.' +
+                  responseDetail,
               },
-            ],
-          },
-        ],
-      };
+            },
+            {
+              type: 'context',
+              elements: [
+                {
+                  type: 'mrkdwn',
+                  text: `Requested by <@${command.user_id}> • ${new Date().toLocaleString()}`,
+                },
+              ],
+            },
+          ],
+        };
+      } catch (error) {
+        console.error('Failed to send StockAlert test alert:', error);
+
+        let reason = 'Unknown error';
+        if (error instanceof StockAlertAPIError) {
+          reason = error.responseText || error.message;
+        } else if (error instanceof Error) {
+          reason = error.message;
+        }
+
+        return {
+          response_type: 'ephemeral',
+          text: '❌ Unable to send test alert. Please try again shortly.\n' + `> ${reason}`,
+        };
+      }
     }
 
     case 'status': {
@@ -298,12 +352,17 @@ async function handleCommandWithMonitoring(
           });
         }
 
-        // Save API key and webhook info to database
-        await installationRepo.update(command.team_id, {
+        // Prepare update payload, only persisting secret when available
+        const updatePayload: Partial<NewInstallation> = {
           stockalertApiKey: apiKey,
           stockalertWebhookId: webhook.id,
-          stockalertWebhookSecret: webhook.secret,
-        });
+        };
+
+        if (webhook.secret) {
+          updatePayload.stockalertWebhookSecret = webhook.secret;
+        }
+
+        await installationRepo.update(command.team_id, updatePayload);
 
         return {
           response_type: 'ephemeral',

@@ -3,7 +3,8 @@ import { WebClient } from '@slack/web-api';
 import { verifySlackSignature } from '../../lib/slack-verify';
 import { installationRepo, channelRepo } from '../../lib/db/repositories';
 import { getChannelSelectionModal, getApiKeyModal, sendWelcomeMessage } from '../../lib/onboarding';
-import { StockAlertAPI } from '../../lib/stockalert-api';
+import { StockAlertAPI, StockAlertAPIError } from '../../lib/stockalert-api';
+import type { NewInstallation } from '../../lib/db/schema';
 import { getWebhookUrl } from '../../lib/constants';
 
 interface SlackInteractivityPayload {
@@ -113,13 +114,60 @@ export default async function handler(
           break;
 
         case 'send_test_alert':
-          // Send test webhook
-          // TODO: Implement test webhook
-          await client.chat.postMessage({
-            channel: payload.user.id,
-            text: '🧪 Test alert sent! You should see it in your configured channel shortly.',
-          });
-          break;
+          if (!installation.stockalertApiKey) {
+            await client.chat.postMessage({
+              channel: payload.user.id,
+              text:
+                '❌ Your workspace is not connected to StockAlert.pro yet.\n' +
+                'Use `/stockalert apikey <your-api-key>` first to enable test alerts.',
+            });
+            break;
+          }
+
+          {
+            const webhookSecret = installation.stockalertWebhookSecret?.trim();
+            if (!webhookSecret) {
+              await client.chat.postMessage({
+                channel: payload.user.id,
+                text: '❌ Missing webhook secret. Please reconnect your API key with `/stockalert apikey <your-api-key>` to refresh credentials.',
+              });
+              break;
+            }
+
+            try {
+              const api = new StockAlertAPI(installation.stockalertApiKey);
+              const webhookUrl = getWebhookUrl(payload.team.id);
+              const result = await api.testWebhook({
+                url: webhookUrl,
+                secret: webhookSecret,
+              });
+
+              const statusLine = result.status_text
+                ? `HTTP ${result.status} ${result.status_text}`
+                : `HTTP ${result.status}`;
+              const responseLine = result.response ? ` Response: \`${result.response}\`` : '';
+
+              await client.chat.postMessage({
+                channel: payload.user.id,
+                text: `🧪 Test alert sent! Webhook responded with ${statusLine}.${responseLine ? ` ${responseLine}` : ''}`,
+              });
+            } catch (error) {
+              console.error('Failed to trigger webhook test from interactivity:', error);
+
+              let reason = 'Unknown error';
+              if (error instanceof StockAlertAPIError) {
+                reason = error.responseText || error.message;
+              } else if (error instanceof Error) {
+                reason = error.message;
+              }
+
+              await client.chat.postMessage({
+                channel: payload.user.id,
+                text: `❌ Failed to send test alert: ${reason}`,
+              });
+            }
+            break;
+          }
 
         case 'continue_onboarding':
           // Re-send welcome message to continue
@@ -205,12 +253,17 @@ export default async function handler(
               console.log('Using existing active webhook:', webhook.id);
             }
 
-            // Save to database
-            await installationRepo.update(payload.team.id, {
+            // Save to database, preserving existing secret if API does not return it
+            const updatePayload: Partial<NewInstallation> = {
               stockalertApiKey: apiKey,
               stockalertWebhookId: webhook.id,
-              stockalertWebhookSecret: webhook.secret,
-            });
+            };
+
+            if (webhook.secret) {
+              updatePayload.stockalertWebhookSecret = webhook.secret;
+            }
+
+            await installationRepo.update(payload.team.id, updatePayload);
 
             // Send confirmation
             await client.chat.postMessage({
