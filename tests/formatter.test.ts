@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatAlertMessage } from '../lib/formatter';
-import { AlertEvent, ALERT_TYPE_CONFIG } from '../lib/types';
+import { AlertEvent, AlertEventSchema, ALERT_TYPE_CONFIG } from '../lib/types';
 
 describe('formatAlertMessage', () => {
   const baseAlert: AlertEvent = {
@@ -69,7 +69,7 @@ describe('formatAlertMessage', () => {
           threshold: 200,
         },
         stock: {
-          ...baseAlert.data.stock,
+          ...baseAlert.data.stock!,
           price: 185.5,
           change: -14.5,
           change_percent: -7.25,
@@ -96,7 +96,7 @@ describe('formatAlertMessage', () => {
           threshold: 50, // 50% increase threshold
         },
         stock: {
-          ...baseAlert.data.stock,
+          ...baseAlert.data.stock!,
         },
         volume_change_percentage: 75.5, // 75.5% actual increase
       },
@@ -125,6 +125,59 @@ describe('formatAlertMessage', () => {
     expect(actionBlock.elements[1].url).toBe('https://stockalert.pro/stocks/AAPL');
   });
 
+  it('should format insider transaction alerts correctly', () => {
+    const insiderAlert: AlertEvent = {
+      ...baseAlert,
+      data: {
+        ...baseAlert.data,
+        alert: {
+          ...baseAlert.data.alert,
+          condition: 'insider_transactions',
+          threshold: 250000,
+        },
+        parameters: {
+          direction: 'buy',
+          minExecutives: 2,
+          windowDays: 14,
+          openMarketOnly: true,
+        },
+      },
+    };
+
+    const result = formatAlertMessage(insiderAlert);
+    const headerText = (result.blocks[0] as any).text.text;
+    const sectionBlock = result.blocks[1] as any;
+
+    expect(headerText).toContain('🏛️');
+    expect(headerText).toContain('Insider Buys');
+    expect(sectionBlock.fields[2].text).toContain('$250000.00');
+    expect(sectionBlock.fields[3].text).toContain('Direction: Buy');
+    expect(sectionBlock.fields[3].text).toContain('Window: 14d');
+  });
+
+  it('accepts and formats payloads without stock data', () => {
+    const parsed = AlertEventSchema.parse({
+      event: 'alert.triggered',
+      timestamp: '2024-01-15T10:30:00Z',
+      data: {
+        alert: {
+          id: 'alert_456',
+          symbol: 'AAPL',
+          condition: 'price_above',
+          threshold: 180,
+        },
+        triggered_at: '2024-01-15T10:30:00Z',
+        parameters: null,
+      },
+    });
+
+    const result = formatAlertMessage(parsed);
+    const sectionBlock = result.blocks[1] as any;
+
+    expect(result.text).toBe('AAPL Alert: Price Above');
+    expect(sectionBlock.fields[1].text).toContain('N/A');
+  });
+
   it('should format all supported alert types correctly', () => {
     const alertTypes = Object.keys(ALERT_TYPE_CONFIG) as Array<keyof typeof ALERT_TYPE_CONFIG>;
 
@@ -139,7 +192,7 @@ describe('formatAlertMessage', () => {
             threshold: 100,
           },
           stock: {
-            ...baseAlert.data.stock,
+            ...baseAlert.data.stock!,
             price: 110,
           },
         },
@@ -187,6 +240,8 @@ describe('formatAlertMessage', () => {
                                           ? '⏰'
                                           : condition === 'daily_reminder'
                                             ? '📅'
+                                            : condition === 'insider_transactions'
+                                              ? '🏛️'
                                             : condition === 'rsi_limit'
                                               ? '📈'
                                               : condition === 'earnings_beat'
@@ -212,7 +267,7 @@ describe('formatAlertMessage', () => {
           condition: 'moving_average',
         },
         stock: {
-          ...baseAlert.data.stock,
+          ...baseAlert.data.stock!,
         },
         parameters: {
           period: 50,
@@ -240,7 +295,7 @@ describe('formatAlertMessage', () => {
           threshold: 10000000,
         },
         stock: {
-          ...baseAlert.data.stock,
+          ...baseAlert.data.stock!,
           price: 15500000,
           change: 5500000,
           change_percent: 55.0,
@@ -267,7 +322,7 @@ describe('formatAlertMessage', () => {
           threshold: 0,
         },
         stock: {
-          ...baseAlert.data.stock,
+          ...baseAlert.data.stock!,
           price: 185.5,
         },
       },
@@ -289,7 +344,7 @@ describe('formatAlertMessage', () => {
           threshold: 100,
         },
         stock: {
-          ...baseAlert.data.stock,
+          ...baseAlert.data.stock!,
           price: 110,
         },
       },

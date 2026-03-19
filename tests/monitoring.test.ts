@@ -125,12 +125,13 @@ describe('Monitoring', () => {
       monitor.recordHistogram('summary.histogram', 150);
 
       const summary = await monitor.getMetricsSummary();
+      const counterStats = summary.metrics['summary.counter'];
 
       expect(summary.timestamp).toBeDefined();
       expect(summary.metrics).toBeDefined();
-      expect(summary.metrics['summary.counter']).toBeDefined();
-      expect(summary.metrics['summary.counter'].count).toBe(2);
-      expect(summary.metrics['summary.counter'].sum).toBe(3);
+      expect(counterStats).toBeDefined();
+      expect(counterStats?.count).toBe(2);
+      expect(counterStats?.sum).toBe(3);
     });
   });
 });

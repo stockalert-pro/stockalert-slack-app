@@ -14,6 +14,24 @@ describe('verifyWebhookSignature', () => {
     expect(result).toBe(true);
   });
 
+  it('should return true for valid timestamped signature', () => {
+    const timestamp = '2026-03-19T12:00:00.000Z';
+    const signature =
+      'sha256=' +
+      crypto.createHmac('sha256', secret).update(`${timestamp}.${payload}`).digest('hex');
+
+    const result = verifyWebhookSignature(payload, signature, secret, timestamp);
+    expect(result).toBe(true);
+  });
+
+  it('should support a legacy signature when a timestamp header is present', () => {
+    const timestamp = '2026-03-19T12:00:00.000Z';
+    const signature = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
+
+    const result = verifyWebhookSignature(payload, signature, secret, timestamp);
+    expect(result).toBe(true);
+  });
+
   it('should return false for invalid signature', () => {
     const invalidSignature = 'sha256=invalid';
 
@@ -36,6 +54,16 @@ describe('verifyWebhookSignature', () => {
     const differentPayload = JSON.stringify({ different: 'data' });
 
     const result = verifyWebhookSignature(differentPayload, signature, secret);
+    expect(result).toBe(false);
+  });
+
+  it('should return false when timestamped signature is verified without the timestamp', () => {
+    const timestamp = '2026-03-19T12:00:00.000Z';
+    const signature =
+      'sha256=' +
+      crypto.createHmac('sha256', secret).update(`${timestamp}.${payload}`).digest('hex');
+
+    const result = verifyWebhookSignature(payload, signature, secret);
     expect(result).toBe(false);
   });
 

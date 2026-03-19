@@ -8,7 +8,7 @@ import { KnownBlock } from '@slack/web-api';
  *
  * Updated for StockAlert.pro v1 API with nested data structure:
  * - data.alert: Basic alert info (id, symbol, condition, threshold, status)
- * - data.stock: Stock price info (symbol, price, change, change_percent)
+ * - data.stock: Optional stock price info (symbol, price, change, change_percent)
  * - data.*: Extended fields for detailed alert types
  */
 
@@ -33,19 +33,27 @@ interface NormalizedAlertData {
 }
 
 /**
- * Normalize v1 API event structure to a flat structure for internal use
- * This maintains backward compatibility with existing formatter functions
+ * Normalize v1 API event structure to a flat structure for internal use.
+ * This keeps legacy formatter paths working even when the webhook omits `data.stock`.
  */
 function normalizeEventData(event: AlertEvent): NormalizedAlertData {
   const { alert, stock, ...extendedFields } = event.data;
+  const extendedData = extendedFields as Record<string, unknown>;
+  const resolvedPrice =
+    stock?.price ??
+    (typeof extendedData.price === 'number'
+      ? extendedData.price
+      : typeof extendedData.current_value === 'number'
+        ? extendedData.current_value
+        : Number.NaN);
 
   const normalized: NormalizedAlertData = {
     alert_id: alert.id,
     symbol: alert.symbol,
     condition: alert.condition,
     threshold: alert.threshold,
-    current_value: stock.price,
-    price: stock.price,
+    current_value: resolvedPrice,
+    price: resolvedPrice,
     ...extendedFields, // Spread extended fields (company_name, volume, etc.)
   };
 
@@ -110,12 +118,16 @@ const ALERT_EMOJIS = {
   earnings_announcement: '📢',
   dividend_ex_date: '💰',
   dividend_payment: '💸',
+  insider_transactions: '🏛️',
 } as const;
 
 /**
  * Format currency values
  */
 function formatCurrency(value: number): string {
+  if (!Number.isFinite(value)) {
+    return 'N/A';
+  }
   return `$${value.toFixed(2)}`;
 }
 
@@ -123,11 +135,21 @@ function formatCurrency(value: number): string {
  * Format percentage values
  */
 function formatPercentage(value: number, showPlus = true): string {
+  if (!Number.isFinite(value)) {
+    return 'N/A';
+  }
   const formatted = value.toFixed(2);
   if (value > 0 && showPlus) {
     return `+${formatted}%`;
   }
   return `${formatted}%`;
+}
+
+function formatNumber(value: number, fractionDigits = 2, suffix = ''): string {
+  if (!Number.isFinite(value)) {
+    return 'N/A';
+  }
+  return `${value.toFixed(fractionDigits)}${suffix}`;
 }
 
 /**
@@ -216,6 +238,12 @@ function getAlertHeader(data: NormalizedAlertData): string {
       return `${emoji} ${symbol} Alert: Ex-Dividend in ${data.days_until_ex_date ?? threshold ?? 0} Days`;
     case 'dividend_payment':
       return `${emoji} ${symbol} Alert: Dividend Payment in ${data.days_until_payment ?? 0} Days`;
+    case 'insider_transactions': {
+      const direction = (data.parameters?.direction as string | undefined) ?? 'both';
+      const directionLabel =
+        direction === 'buy' ? 'Insider Buys' : direction === 'sell' ? 'Insider Sells' : 'Insider Activity';
+      return `${emoji} ${symbol} Alert: ${directionLabel} ${threshold ? `Above ${formatCurrency(threshold)}` : ''}`.trim();
+    }
     default:
       return `🚨 ${symbol} Alert: ${condition.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}`;
   }
@@ -446,7 +474,7 @@ function formatRSIAlert(data: NormalizedAlertData): KnownBlock[] {
     },
     {
       type: 'mrkdwn' as const,
-      text: `*RSI Value:*\n${rsiVal.toFixed(2)}`,
+      text: `*RSI Value:*\n${formatNumber(rsiVal, 2)}`,
     },
     {
       type: 'mrkdwn' as const,
@@ -499,11 +527,11 @@ function formatPERatioAlert(data: NormalizedAlertData, isForward: boolean): Know
     },
     {
       type: 'mrkdwn' as const,
-      text: `*${isForward ? 'Forward P/E' : 'P/E Ratio'}:*\n${actualRatio.toFixed(2)}x`,
+      text: `*${isForward ? 'Forward P/E' : 'P/E Ratio'}:*\n${formatNumber(actualRatio, 2, 'x')}`,
     },
     {
       type: 'mrkdwn' as const,
-      text: `*Target ${isForward ? 'Forward P/E' : 'P/E'}:*\n${threshold ? `${threshold.toFixed(2)}x` : 'N/A'}`,
+      text: `*Target ${isForward ? 'Forward P/E' : 'P/E'}:*\n${threshold ? formatNumber(threshold, 2, 'x') : 'N/A'}`,
     },
   ];
 
@@ -792,7 +820,7 @@ function formatDividendAlert(
     if (dividendYld && dividendYld > 0) {
       fields.push({
         type: 'mrkdwn' as const,
-        text: `*Dividend Yield:*\n${dividendYld.toFixed(2)}%`,
+        text: `*Dividend Yield:*\n${formatNumber(dividendYld, 2, '%')}`,
       });
     }
 
@@ -924,6 +952,57 @@ function formatReminderAlert(data: NormalizedAlertData, isDaily: boolean): Known
   }
 }
 
+function formatInsiderTransactionsAlert(data: NormalizedAlertData): KnownBlock[] {
+  const {
+    symbol,
+    company_name,
+    price,
+    threshold,
+    parameters,
+  } = data;
+  const direction = (parameters?.direction as string | undefined) ?? 'both';
+  const directionLabel =
+    direction === 'buy' ? 'Buy' : direction === 'sell' ? 'Sell' : 'Buy / Sell';
+  const minExecutives = parameters?.minExecutives as number | undefined;
+  const windowDays = parameters?.windowDays as number | undefined;
+  const openMarketOnly = parameters?.openMarketOnly as boolean | undefined;
+
+  const scopeParts = [`Direction: ${directionLabel}`];
+  if (minExecutives) {
+    scopeParts.push(`Min Executives: ${minExecutives}`);
+  }
+  if (windowDays) {
+    scopeParts.push(`Window: ${windowDays}d`);
+  }
+  if (openMarketOnly !== undefined) {
+    scopeParts.push(`Open Market Only: ${openMarketOnly ? 'Yes' : 'No'}`);
+  }
+
+  return [
+    {
+      type: 'section',
+      fields: [
+        {
+          type: 'mrkdwn',
+          text: `*Stock:*\n${company_name ? `${company_name} (${symbol})` : symbol}`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*Current Price:*\n${price ? formatCurrency(price) : 'N/A'}`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*Minimum Value:*\n${threshold ? formatCurrency(threshold) : 'N/A'}`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*Filters:*\n${scopeParts.join(' • ')}`,
+        },
+      ],
+    },
+  ];
+}
+
 /**
  * Main formatter function (v1 API)
  * Normalizes the nested API structure and formats alert for Slack
@@ -1015,6 +1094,9 @@ export function formatSlackAlert(event: AlertEvent): {
       break;
     case 'daily_reminder':
       blocks.push(...formatReminderAlert(data, true));
+      break;
+    case 'insider_transactions':
+      blocks.push(...formatInsiderTransactionsAlert(data));
       break;
     default:
       blocks.push(formatDefaultAlert(data));

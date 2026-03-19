@@ -26,12 +26,15 @@ export const AlertEventSchema = z.object({
     }),
 
     // Stock price information (from API spec)
-    stock: z.object({
-      symbol: z.string(),
-      price: z.number(),
-      change: z.number().nullable(),
-      change_percent: z.number().nullable(),
-    }),
+    stock: z
+      .object({
+        symbol: z.string(),
+        price: z.number(),
+        change: z.number().nullable(),
+        change_percent: z.number().nullable(),
+      })
+      .nullable()
+      .optional(),
 
     // Extended fields for detailed alert types (optional, for backward compatibility)
     // These provide additional context beyond the basic API structure
@@ -247,6 +250,11 @@ export const ALERT_TYPE_CONFIG = {
     emoji: '📆',
     color: '#7FDBFF',
     description: 'Daily reminder',
+  },
+  insider_transactions: {
+    emoji: '🏛️',
+    color: '#3D9970',
+    description: 'Insider transactions',
   },
 } as const;
 

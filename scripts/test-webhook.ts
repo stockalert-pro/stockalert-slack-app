@@ -540,6 +540,35 @@ function createAlertPayload(type: string = 'price_above') {
         },
       };
 
+    case 'insider_transactions':
+      return {
+        ...basePayload,
+        data: {
+          ...basePayload.data,
+          alert: {
+            ...basePayload.data.alert,
+            symbol: 'NVDA',
+            condition: 'insider_transactions',
+            threshold: 2,
+          },
+          stock: {
+            ...basePayload.data.stock,
+            symbol: 'NVDA',
+            price: 917.4,
+            change: 14.2,
+            change_percent: 1.57,
+          },
+          company_name: 'NVIDIA Corporation',
+          reason: '2 executives bought shares in the last 30 days',
+          parameters: {
+            direction: 'buy',
+            minExecutives: 2,
+            windowDays: 30,
+            openMarketOnly: true,
+          },
+        },
+      };
+
     default:
       return {
         ...basePayload,
@@ -564,6 +593,7 @@ function createAlertPayload(type: string = 'price_above') {
 // Get alert type from command line or default
 const alertType = process.argv[2] || 'price_above';
 const payload = createAlertPayload(alertType);
+const timestamp = new Date().toISOString();
 
 // Validate alert type
 const validAlertTypes = [
@@ -588,6 +618,7 @@ const validAlertTypes = [
   'dividend_payment',
   'reminder',
   'daily_reminder',
+  'insider_transactions',
 ];
 
 if (!validAlertTypes.includes(alertType) && alertType !== '--help' && alertType !== '-h') {
@@ -625,7 +656,10 @@ async function sendTestWebhook(): Promise<void> {
 
     // Generate signature with the correct secret
     const payloadString = JSON.stringify(payload);
-    const signature = crypto.createHmac('sha256', secret).update(payloadString).digest('hex');
+    const signature = crypto
+      .createHmac('sha256', secret)
+      .update(`${timestamp}.${payloadString}`)
+      .digest('hex');
 
     console.log('\n📨 Sending test webhook');
     console.log('Alert Type:', alertType);
@@ -642,7 +676,7 @@ async function sendTestWebhook(): Promise<void> {
         'X-StockAlert-Signature': signature,
         // v1 API: Convenience headers
         'X-StockAlert-Event': 'alert.triggered',
-        'X-StockAlert-Timestamp': new Date().toISOString(),
+        'X-StockAlert-Timestamp': timestamp,
         // Legacy header (with sha256= prefix) for backward compatibility
         'X-Signature': `sha256=${signature}`,
       },
@@ -671,7 +705,7 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log(`
 Usage: npm run test:webhook [alert-type]
 
-Available alert types (21 total):
+Available alert types (22 total):
 
 Price Alerts:
   - price_above         Price above threshold
@@ -703,7 +737,8 @@ Corporate Events:
   - earnings_announcement  Earnings coming up (MSFT)
   - dividend_ex_date      Ex-dividend date (JNJ)
   - dividend_payment      Dividend payment (KO)
-  
+  - insider_transactions  Insider buying/selling cluster alert
+
 Reminders:
   - reminder           Periodic reminder
   - daily_reminder     Daily update

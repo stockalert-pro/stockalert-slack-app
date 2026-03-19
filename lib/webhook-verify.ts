@@ -7,7 +7,9 @@ import * as crypto from 'node:crypto';
  * According to the API spec (openapi.yaml):
  * - Header: X-StockAlert-Signature
  * - Algorithm: HMAC-SHA256
- * - Format: Plain hex digest (no prefix)
+ * - Format: Plain hex digest (no prefix), with optional legacy `sha256=` prefix
+ * - Current signing mode may include `${timestamp}.${payload}` when `X-StockAlert-Timestamp` is present
+ * - Legacy signing mode uses the raw payload body directly
  * - Note: Slack webhooks do not include signatures
  *
  * @param payload - The webhook payload (string or Buffer)
@@ -18,7 +20,8 @@ import * as crypto from 'node:crypto';
 export function verifyWebhookSignature(
   payload: string | Buffer,
   signature: string,
-  secret: string
+  secret: string,
+  timestamp?: string
 ): boolean {
   // Validate inputs
   if (!payload || !signature || !secret) {
@@ -45,20 +48,29 @@ export function verifyWebhookSignature(
 
   // Calculate expected signature using HMAC-SHA256
   // As per API spec: HMAC-SHA256(secret, JSON.stringify(payload))
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payloadString, 'utf8')
-    .digest('hex');
+  const payloadVariants =
+    timestamp && timestamp.length > 0 ? [`${timestamp}.${payloadString}`, payloadString] : [payloadString];
 
-  // Use timing-safe comparison to prevent timing attacks
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(signatureToVerify, 'hex'),
-      Buffer.from(expectedSignature, 'hex')
-    );
-  } catch (error) {
-    // If buffers have different lengths or invalid hex encoding
-    console.error('Webhook signature comparison failed:', error);
-    return false;
+  for (const signingPayload of payloadVariants) {
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(signingPayload, 'utf8')
+      .digest('hex');
+
+    try {
+      if (
+        crypto.timingSafeEqual(
+          Buffer.from(signatureToVerify, 'hex'),
+          Buffer.from(expectedSignature, 'hex')
+        )
+      ) {
+        return true;
+      }
+    } catch (error) {
+      console.error('Webhook signature comparison failed:', error);
+      return false;
+    }
   }
+
+  return false;
 }

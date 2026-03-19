@@ -179,7 +179,15 @@ export default async function handler(
     // verifyWebhookSignature handles both formats
     const isValid = await measureAsync(
       'webhook.verifySignature',
-      () => Promise.resolve(verifyWebhookSignature(rawBody, signature, webhookSecret)),
+      () =>
+        Promise.resolve(
+          verifyWebhookSignature(
+            rawBody,
+            signature,
+            webhookSecret,
+            Array.isArray(timestampHeader) ? timestampHeader[0] : timestampHeader
+          )
+        ),
       { team: teamId }
     );
 

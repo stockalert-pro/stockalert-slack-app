@@ -38,9 +38,13 @@ export interface PerformanceSummaryStats {
 
 export interface MetricsSummary {
   timestamp: string;
-  metrics: Record<string, any>;
+  metrics: Record<string, MetricSummaryStats>;
   performance: Record<string, PerformanceSummaryStats>;
 }
+
+type AsyncMethod<TArgs extends unknown[] = unknown[], TResult = unknown> = (
+  ...args: TArgs
+) => Promise<TResult>;
 
 // Performance tracking
 class PerformanceTracker {
@@ -279,15 +283,17 @@ export class Monitor {
 
 // Monitoring decorators
 export function monitored(name?: string) {
-  // Broad decorator typing to play nice with varied test signatures
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<any>) {
+  return function <TArgs extends unknown[], TResult>(
+    target: { constructor: { name: string } },
+    propertyKey: string,
+    descriptor: TypedPropertyDescriptor<AsyncMethod<TArgs, TResult>>,
+  ): TypedPropertyDescriptor<AsyncMethod<TArgs, TResult>> {
     const originalMethod = descriptor.value;
     const metricName = name || `${target.constructor.name}.${propertyKey}`;
 
     if (!originalMethod) return descriptor;
 
-    descriptor.value = async function (...args: unknown[]) {
+    descriptor.value = async function (...args: TArgs) {
       const monitor = Monitor.getInstance();
       monitor.startTimer(metricName);
       try {
@@ -313,13 +319,13 @@ export function requestMonitoring(): RequestHandler {
     // Track request start
     monitor.incrementCounter('http.requests', 1, {
       method: req.method,
-      path: (req as any).path || req.url,
+      path: req.path || req.url,
     });
 
     // Use 'finish' event to capture response timing and status safely
     res.on('finish', () => {
       const duration = Date.now() - start;
-      const path = (req as any).path || req.url;
+      const path = req.path || req.url;
       const status = String(res.statusCode);
 
       monitor.recordHistogram('http.request.duration', duration, {

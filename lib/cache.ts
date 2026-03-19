@@ -18,6 +18,10 @@ export interface CacheStats {
   kvSize?: number;
 }
 
+type AsyncMethod<TArgs extends unknown[] = unknown[], TResult = unknown> = (
+  ...args: TArgs
+) => Promise<TResult>;
+
 // In-memory cache for fallback when KV is not available
 class InMemoryCache {
   private cache = new Map<string, CacheEntry<unknown>>();
@@ -296,19 +300,18 @@ export class Cache {
 
 // Cache decorators
 export function cached(options: CacheOptions = {}) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function (
+  return function <TArgs extends unknown[], TResult>(
     _target: unknown,
     _propertyKey: string,
-    descriptor: TypedPropertyDescriptor<any>
-  ): TypedPropertyDescriptor<any> {
+    descriptor: TypedPropertyDescriptor<AsyncMethod<TArgs, TResult>>
+  ): TypedPropertyDescriptor<AsyncMethod<TArgs, TResult>> {
     const originalMethod = descriptor.value;
 
     if (!originalMethod) {
       return descriptor;
     }
 
-    descriptor.value = async function (...args: unknown[]) {
+    descriptor.value = async function (...args: TArgs) {
       const cache = Cache.getInstance();
 
       // Create cache key from method name and arguments
