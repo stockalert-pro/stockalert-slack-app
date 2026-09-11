@@ -292,7 +292,7 @@ export default async function handler(
       monitor.incrementCounter('webhook.errors', 1, { type: 'validation_error' });
       return res.status(400).json({
         error: 'Invalid webhook payload',
-        details: error.errors,
+        details: error.issues,
       });
     }
 
