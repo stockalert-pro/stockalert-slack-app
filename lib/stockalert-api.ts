@@ -10,7 +10,7 @@ function hasProperty<T extends object, K extends PropertyKey>(
   return key in obj;
 }
 
-const DEFAULT_BASE_URL = 'https://stockalert.pro/api/v1';
+const DEFAULT_BASE_URL = 'https://api.stockalert.pro/v1';
 
 export interface CreateWebhookRequest {
   url: string;
