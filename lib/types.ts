@@ -41,7 +41,7 @@ export const AlertEventSchema = z.object({
     company_name: z.string().optional(),
     triggered_at: z.string().optional(),
     reason: z.string().optional(),
-    parameters: z.record(z.unknown()).nullable().optional(),
+    parameters: z.record(z.string(), z.unknown()).nullable().optional(),
     test: z.boolean().optional(),
 
     // Price change fields
@@ -123,7 +123,7 @@ export const LegacyAlertEventSchema = z.object({
       triggered_at: z.string().optional(),
       is_active: z.boolean(),
       notification_channel: z.enum(['email', 'sms', 'whatsapp']),
-      parameters: z.record(z.any()).optional(),
+      parameters: z.record(z.string(), z.any()).optional(),
     }),
   }),
 });
