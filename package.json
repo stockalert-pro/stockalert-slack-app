@@ -44,20 +44,20 @@
     "zod": "^4.6.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
-    "@types/node": "^22.16.0",
+    "@types/node": "^26.6.1",
     "@types/node-fetch": "^2.6.0",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^5.0.1",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^9.39.5",
+    "eslint": "^10.10.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
-    "node-fetch": "^2.7.0",
-    "prettier": "^3.9.6",
+    "lint-staged": "^17.5.1",
+    "node-fetch": "^3.3.2",
+    "prettier": "^3.9.8",
     "tsx": "^4.23.13",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^2.1.8"
+    "vitest": "^5.0.1"
   }
 }
